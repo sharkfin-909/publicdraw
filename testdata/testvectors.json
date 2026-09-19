@@ -1,0 +1,224 @@
+{
+  "_note": "Cross-implementation contract. Every value here must be reproduced byte-for-byte by any other implementation of this protocol.",
+  "tags": {
+    "challenge": "vc/pool/challenge/v1",
+    "commit": "vc/pool/commit/v1",
+    "leaf": "vc/pool/leaf/v1",
+    "node": "vc/pool/node/v1",
+    "select": "vc/select/v1",
+    "session": "vc/session/v1"
+  },
+  "length_prefix": [
+    {
+      "in_hex": "",
+      "out_hex": "00000000"
+    },
+    {
+      "in_hex": "00",
+      "out_hex": "0000000100"
+    },
+    {
+      "in_hex": "616263",
+      "out_hex": "00000003616263"
+    },
+    {
+      "in_hex": "ff00ff",
+      "out_hex": "00000003ff00ff"
+    }
+  ],
+  "tagged_hash": [
+    {
+      "tag": "vc/pool/leaf/v1",
+      "parts_hex": [
+        "616263"
+      ],
+      "out": "510b382b6f94679db646ec84b2d9eb8e7970b32a8b4d3ab61b13b4715d7bde4c"
+    },
+    {
+      "tag": "vc/select/v1",
+      "parts_hex": [
+        "6162",
+        "63646566"
+      ],
+      "out": "ce15fcc932e391d4545304d64cdb40bb41642dfb22524309806fba8513741f38"
+    },
+    {
+      "tag": "vc/select/v1",
+      "parts_hex": [
+        "616263",
+        "646566"
+      ],
+      "out": "a60034102e8b8784cfdf4a998562c629630cc0bef1be44dbd4a98eaf79ccbe3e"
+    },
+    {
+      "tag": "vc/pool/node/v1",
+      "parts_hex": [],
+      "out": "d7c79c3dcb857f25878b50675f3a58da5bcb4ab1399c09df4d168de70db8bfa7"
+    }
+  ],
+  "pool_leaf": [
+    {
+      "salt_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+      "entry_hex": "",
+      "leaf": "2f4ba0c83fc3fa40f86f3318de770d54fb31d425738b269625a5699544cb6b7a"
+    },
+    {
+      "salt_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+      "entry_hex": "68656c6c6f",
+      "leaf": "73b92bcc639a1d951241a716b4ef47a5ba8834cedead58dbae83a9b7bd1c9dfa"
+    }
+  ],
+  "merkle_node": {
+    "left": "331d7005b82c5026fcb4809477e8c5582a9ff226e1c13eef687c6d4250da1f08",
+    "right": "a559360bedfff3b98e4a7826c3bc4f7774075f088fd1222625f00f8b401211f8",
+    "node": "71e474ea22f6dc7b203fac269808a7e553ae58dfea5d7bf9947fc1ed604f2787"
+  },
+  "merkle_roots": [
+    {
+      "size": 1,
+      "root": "103006964a804030dfc27d1bdc4245e38d320a5a384f05203a340aa69c3a14d7"
+    },
+    {
+      "size": 2,
+      "root": "c0cb03aa2f03b38831943520f919a2f42826c8f05fbf865db555067b2221058e"
+    },
+    {
+      "size": 3,
+      "root": "0e6c468b6fdec9d457b73466136299f271a239412a9f145812f0f059b3c5486d"
+    },
+    {
+      "size": 4,
+      "root": "1b10d5a087fee3bf36c344489f47db90ff5b7ad0b84ad33c6ddb2534d36f4364"
+    },
+    {
+      "size": 5,
+      "root": "1beeb1d599b1176035b22928d86ec1dab0c479574d1b8bfa31584c43bfc4aa41"
+    },
+    {
+      "size": 7,
+      "root": "06458ee80bead87938bd58e2c33bd0d7bf50a422e7b2f7ed85aa52d263349d10"
+    },
+    {
+      "size": 8,
+      "root": "05c364f5113a45ed5c8bf2a960db9dd7bf398077e0af37c784f71cb51f478330"
+    },
+    {
+      "size": 9,
+      "root": "9b6176226e563b116f0ccdec0da47c50d9a975551e0a22b77f09582f4e717e1d"
+    },
+    {
+      "size": 16,
+      "root": "731874605d4fe5ae4e524a1002f6ad1330a9ad2f0bea8ab85ba25af58e41416e"
+    },
+    {
+      "size": 17,
+      "root": "eb48373bf86fedb6e8c7190055d90cd034bd31aa0aa71f3fc369838d9258770e"
+    }
+  ],
+  "challenge_canonical": [
+    {
+      "challenge": {
+        "id": "",
+        "language": "",
+        "title": "",
+        "prompt": "",
+        "starter_code": ""
+      },
+      "canonical_hex": "0000000000000000000000000000000000000000",
+      "leaf_with_zero_salt": "046483e884004424bc8819a332fa4e6253af3aca90bc26c92f3450f7bf79b23b"
+    },
+    {
+      "challenge": {
+        "id": "lru-cache",
+        "language": "go",
+        "title": "LRU cache",
+        "prompt": "Implement an LRU cache.",
+        "starter_code": "package main\n"
+      },
+      "canonical_hex": "000000096c72752d636163686500000002676f000000094c525520636163686500000017496d706c656d656e7420616e204c52552063616368652e0000000d7061636b616765206d61696e0a",
+      "leaf_with_zero_salt": "c855ebed633c27cd04c6fb312676754620bc3964a640e5c999151211527f8fff"
+    },
+    {
+      "challenge": {
+        "id": "ab",
+        "language": "cd",
+        "title": "",
+        "prompt": "",
+        "starter_code": ""
+      },
+      "canonical_hex": "000000026162000000026364000000000000000000000000",
+      "leaf_with_zero_salt": "59a54188b082ac336e1102c6ae70829aea08045404aa04cb1f6b07434b1a6019"
+    },
+    {
+      "challenge": {
+        "id": "abc",
+        "language": "d",
+        "title": "",
+        "prompt": "",
+        "starter_code": ""
+      },
+      "canonical_hex": "000000036162630000000164000000000000000000000000",
+      "leaf_with_zero_salt": "030f5834b726e48bbf0a5f832d8092beb7ad98ed86b1da23898dc3e51d03aef1"
+    }
+  ],
+  "pool_commit": [
+    {
+      "root": "6f6fc391bef75df38f2698397ea18585dd0e5af0e3f1835493cc00eaf598ad56",
+      "size": 1,
+      "commit": "bcc17041dd94e8a4f5da509edfa3477217d5f7d21ffe72335a91ff28fca3d5ee"
+    },
+    {
+      "root": "6f6fc391bef75df38f2698397ea18585dd0e5af0e3f1835493cc00eaf598ad56",
+      "size": 5,
+      "commit": "f0f9a2f4b6dc2ee0df7f7f7fa43870ce4b80193bf5e3be1542845176f6dc91e1"
+    },
+    {
+      "root": "6f6fc391bef75df38f2698397ea18585dd0e5af0e3f1835493cc00eaf598ad56",
+      "size": 1000,
+      "commit": "6e07ebf51c143290ff6a6ccfe540e8a7d4f32e5db8c9bbd2cbc52da5b3d7a415"
+    }
+  ],
+  "select_index": [
+    {
+      "pool_root": "6f6fc391bef75df38f2698397ea18585dd0e5af0e3f1835493cc00eaf598ad56",
+      "pool_size": 1,
+      "randomness": "52f83e5a3a4de4f86754ef25ce771b22ba59963eb18ac1d6a03bc9d9f1478334",
+      "session_id": "s",
+      "index": 0
+    },
+    {
+      "pool_root": "6f6fc391bef75df38f2698397ea18585dd0e5af0e3f1835493cc00eaf598ad56",
+      "pool_size": 5,
+      "randomness": "52f83e5a3a4de4f86754ef25ce771b22ba59963eb18ac1d6a03bc9d9f1478334",
+      "session_id": "3f1c9a77b2e04d18",
+      "index": 1
+    },
+    {
+      "pool_root": "6f6fc391bef75df38f2698397ea18585dd0e5af0e3f1835493cc00eaf598ad56",
+      "pool_size": 1000,
+      "randomness": "52f83e5a3a4de4f86754ef25ce771b22ba59963eb18ac1d6a03bc9d9f1478334",
+      "session_id": "session-0",
+      "index": 535
+    },
+    {
+      "pool_root": "6f6fc391bef75df38f2698397ea18585dd0e5af0e3f1835493cc00eaf598ad56",
+      "pool_size": 1000,
+      "randomness": "52f83e5a3a4de4f86754ef25ce771b22ba59963eb18ac1d6a03bc9d9f1478334",
+      "session_id": "session-1",
+      "index": 645
+    },
+    {
+      "pool_root": "6f6fc391bef75df38f2698397ea18585dd0e5af0e3f1835493cc00eaf598ad56",
+      "pool_size": 64,
+      "randomness": "52f83e5a3a4de4f86754ef25ce771b22ba59963eb18ac1d6a03bc9d9f1478334",
+      "session_id": "",
+      "index": 35
+    }
+  ],
+  "beacon": {
+    "round": 20000000,
+    "signature": "96892582a33552a7b67ba44ef09c3ccd535bbebe760c93ecf45be8958d0c0f06390c6d19d7bf492eb806af7eef6b125c",
+    "randomness": "f39c98df5525968e6622e0c63edb3d1f9c5607cf780db78abdded36e4b3dba95",
+    "published_unix": 1752803364
+  }
+}
