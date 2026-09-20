@@ -117,6 +117,21 @@ type Roster struct {
 	tree *merkle.Tree
 }
 
+// SealOne salts a single label.
+//
+// Salts are generated when an entrant enters, not when the roster is frozen,
+// so the entrant can be handed their salt immediately. That is what lets them
+// check their own inclusion in the published leaf list later without anything
+// having to be delivered to them at the cutoff — and a receipt that never
+// arrived is indistinguishable from one that was never issued.
+func SealOne(label string) (Sealed, error) {
+	salt := make([]byte, SaltSize)
+	if _, err := rand.Read(salt); err != nil {
+		return Sealed{}, fmt.Errorf("roster: salt: %w", err)
+	}
+	return Sealed{Salt: Salt(salt), Entry: Entry{Label: label}}, nil
+}
+
 // Seal salts each label with fresh randomness and builds the tree. Order is
 // preserved and is part of the commitment: entry i is entry i forever.
 func Seal(labels []string) (*Roster, error) {
@@ -125,11 +140,11 @@ func Seal(labels []string) (*Roster, error) {
 	}
 	sealed := make([]Sealed, len(labels))
 	for i, l := range labels {
-		salt := make([]byte, SaltSize)
-		if _, err := rand.Read(salt); err != nil {
-			return nil, fmt.Errorf("roster: salt: %w", err)
+		s, err := SealOne(l)
+		if err != nil {
+			return nil, err
 		}
-		sealed[i] = Sealed{Salt: Salt(salt), Entry: Entry{Label: l}}
+		sealed[i] = s
 	}
 	return Load(sealed)
 }
@@ -195,6 +210,34 @@ type Receipt struct {
 func VerifyReceipt(r Receipt, salt []byte) bool {
 	leaf := merkle.LeafHash(salt, r.Entry.CanonicalBytes())
 	return merkle.Verify(leaf, r.Index, r.Size, r.MerklePath, r.Root)
+}
+
+// Leaves returns every leaf, in committed order.
+//
+// Publishing these alongside the root is safe in either disclosure mode: a
+// leaf is H(tag, salt, label) with 32 bytes of fresh randomness, so it reveals
+// nothing about the label to anyone who does not already hold that salt — and
+// only the entrant does. It leaks no more than a Merkle proof already does,
+// since a proof discloses sibling leaves anyway.
+//
+// What it buys: the root becomes independently rebuildable even for a private
+// draw, and every entrant can confirm their own inclusion without a receipt
+// having reached them.
+func (r *Roster) Leaves() []hashing.Digest {
+	out := make([]hashing.Digest, len(r.Sealed))
+	for i, s := range r.Sealed {
+		out[i] = s.Leaf()
+	}
+	return out
+}
+
+// RootFromLeaves rebuilds a root from published leaves.
+func RootFromLeaves(leaves []hashing.Digest) (hashing.Digest, error) {
+	t, err := merkle.New(leaves)
+	if err != nil {
+		return hashing.Digest{}, err
+	}
+	return t.Root(), nil
 }
 
 // Rebuild recomputes a root from fully disclosed entries. This is how a public

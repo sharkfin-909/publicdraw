@@ -35,6 +35,7 @@ func New(svc *service.Service) *Server {
 	s.mux.HandleFunc("GET /v1/draws/{id}", s.getDraw)
 	s.mux.HandleFunc("POST /v1/draws/{id}/entries", s.addEntries)
 	s.mux.HandleFunc("POST /v1/draws/{id}/commit", s.commit)
+	s.mux.HandleFunc("GET /v1/draws/{id}/leaves", s.leaves)
 	s.mux.HandleFunc("GET /v1/draws/{id}/receipt/{index}", s.receipt)
 	s.mux.HandleFunc("POST /v1/draws/{id}/run", s.run)
 	s.mux.HandleFunc("GET /v1/draws/{id}/bundle", s.getBundle)
@@ -133,14 +134,18 @@ func (s *Server) getDraw(w http.ResponseWriter, r *http.Request) {
 	}
 	out := map[string]any{
 		"params": st.Params, "params_sig": st.ParamsSig,
-		"state": st.State, "entry_count": len(st.Labels),
+		"state": st.State, "entry_count": len(st.Sealed),
 	}
 	if st.RosterCommit != nil {
 		out["roster_commit"] = st.RosterCommit
 		out["roster_sig"] = st.RosterSig
 	}
 	if st.Params.Disclosure == roster.Public && st.State != service.StateOpen {
-		out["labels"] = st.Labels
+		labels := make([]string, len(st.Sealed))
+		for i, e := range st.Sealed {
+			labels[i] = e.Entry.Label
+		}
+		out["labels"] = labels
 	}
 	write(w, http.StatusOK, out)
 }
@@ -155,12 +160,18 @@ func (s *Server) addEntries(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, err)
 		return
 	}
-	n, err := s.svc.Enter(r.PathValue("id"), req.Labels...)
+	admitted, err := s.svc.Enter(r.PathValue("id"), req.Labels...)
 	if err != nil {
 		svcErr(w, err)
 		return
 	}
-	write(w, http.StatusOK, map[string]any{"entry_count": n, "first_index": n - len(req.Labels)})
+	// The salts come back here and only here. An entrant who keeps theirs can
+	// prove their own inclusion later from the published leaves alone, with
+	// nothing needing to be sent to them at the cutoff.
+	write(w, http.StatusOK, map[string]any{
+		"admitted": admitted,
+		"note":     "keep the salt for each entry: it is what lets that entrant check their own inclusion after the cutoff",
+	})
 }
 
 func (s *Server) commit(w http.ResponseWriter, r *http.Request) {
@@ -171,6 +182,31 @@ func (s *Server) commit(w http.ResponseWriter, r *http.Request) {
 	}
 	write(w, http.StatusOK, map[string]any{
 		"roster_commit": st.RosterCommit, "roster_sig": st.RosterSig, "state": st.State,
+	})
+}
+
+// leaves publishes every committed leaf. Safe in either disclosure mode, and
+// the only thing an entrant needs — besides the salt they were given at entry
+// — to confirm they were in the roster the winners came from.
+func (s *Server) leaves(w http.ResponseWriter, r *http.Request) {
+	st, err := s.svc.Get(r.PathValue("id"))
+	if err != nil {
+		svcErr(w, err)
+		return
+	}
+	if st.RosterCommit == nil {
+		fail(w, http.StatusConflict, errors.New("roster is not committed yet"))
+		return
+	}
+	ros, err := roster.Load(st.Sealed)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	write(w, http.StatusOK, map[string]any{
+		"root":   st.RosterCommit.Root,
+		"size":   st.RosterCommit.Size,
+		"leaves": ros.Leaves(),
 	})
 }
 

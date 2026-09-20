@@ -32,7 +32,8 @@ const usage = `vc — publicly verifiable draws
 organiser:
   vc keygen  [-out FILE]
   vc create  -title T [-winners N] [-disclosure public|private] -open 10m
-  vc enter   -draw ID (-label L | -file FILE)
+  vc enter   -draw ID (-label L | -file FILE) [-salts FILE]
+  vc leaves  -draw ID
   vc commit  -draw ID
   vc run     -draw ID [-wait]
   vc receipt -draw ID -index N [-out FILE]
@@ -80,6 +81,8 @@ func main() {
 		err = cmdCreate(rest)
 	case "enter":
 		err = cmdEnter(rest)
+	case "leaves":
+		err = cmdLeaves(rest)
 	case "commit":
 		err = cmdCommit(rest)
 	case "run":
@@ -201,6 +204,7 @@ func cmdEnter(args []string) error {
 	id := fs.String("draw", "", "draw id")
 	label := fs.String("label", "", "a single entry")
 	file := fs.String("file", "", "file of entries, one per line")
+	salts := fs.String("salts", "", "append index/salt/label rows here as entries are admitted")
 	parse(fs, args)
 
 	var labels []string
@@ -230,11 +234,67 @@ func cmdEnter(args []string) error {
 	if err != nil {
 		return err
 	}
-	n, err := svc.Enter(*id, labels...)
+	admitted, err := svc.Enter(*id, labels...)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("added %d, %d total\n", len(labels), n)
+
+	// Each entrant's salt is printed once, here. Holding it from the moment
+	// they enter is what lets them check their own inclusion against the
+	// published leaves later, with nothing needing to reach them at the
+	// cutoff — so this is worth handing on rather than discarding.
+	if *salts != "" {
+		f, err := os.OpenFile(*salts, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		for _, a := range admitted {
+			if _, err := fmt.Fprintf(f, "%d\t%s\t%s\n", a.Index, a.Salt, a.Label); err != nil {
+				return err
+			}
+		}
+	}
+
+	fmt.Printf("added %d entries\n\n", len(admitted))
+	for _, a := range admitted {
+		fmt.Printf("  #%-4d %s  %s\n", a.Index, a.Salt, a.Label)
+	}
+	fmt.Printf("\nGive each entrant their index and salt. It is what lets them prove\n")
+	fmt.Printf("their own inclusion later, whether or not a receipt ever reaches them.\n")
+	if *salts != "" {
+		fmt.Printf("Appended to %s\n", *salts)
+	}
+	return nil
+}
+
+// cmdLeaves prints every committed leaf. An entrant with the salt they were
+// given at entry can hash their own label and find it here — no receipt, and
+// no cooperation from the organiser beyond publishing this list.
+func cmdLeaves(args []string) error {
+	fs := newFlags("leaves", args)
+	id := fs.String("draw", "", "draw id")
+	parse(fs, args)
+
+	svc, err := openService()
+	if err != nil {
+		return err
+	}
+	st, err := svc.Get(*id)
+	if err != nil {
+		return err
+	}
+	if st.RosterCommit == nil {
+		return fmt.Errorf("leaves: draw %s has no committed roster yet", *id)
+	}
+	ros, err := roster.Load(st.Sealed)
+	if err != nil {
+		return err
+	}
+	for i, l := range ros.Leaves() {
+		fmt.Printf("%d\t%s\n", i, l)
+	}
+	fmt.Fprintf(os.Stderr, "\n%d leaves, root %s\n", st.RosterCommit.Size, st.RosterCommit.Root)
 	return nil
 }
 

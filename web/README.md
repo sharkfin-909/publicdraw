@@ -48,6 +48,29 @@ pnpm dev
 
 `pnpm test` runs both suites without either server.
 
+## Salts are issued at entry, not at the cutoff
+
+When someone enters, they are handed their index and salt immediately — the
+`POST /draws/{id}/entries` response carries them, and the UI shows them once.
+
+That timing is the whole point. At the cutoff the full list of committed
+**leaves** is published (`GET /draws/{id}/leaves`, and in the bundle), and an
+entrant holding their salt can hash their own label and look for themselves in
+it. Nothing has to be delivered to them.
+
+Without this, receipts were the only defence against being dropped — and a
+receipt that never arrived is indistinguishable from one that was never issued,
+so an entrant removed before the commit would have had nothing to notice.
+
+Publishing every leaf is safe in either disclosure mode: a leaf is
+`H(tag, salt, label)` with 32 bytes of fresh randomness, so it discloses
+nothing to anyone who does not already hold that salt. It also leaks no more
+than a Merkle proof already does, since a proof reveals sibling leaves anyway.
+
+It buys one thing beyond the self-check: the root becomes independently
+rebuildable even for a private draw, so verification no longer rests on
+per-winner proofs alone.
+
 ## Notes
 
 The countdown on a draw page is not decoration. The gap between the roster

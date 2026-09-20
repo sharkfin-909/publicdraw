@@ -127,7 +127,8 @@ Stated plainly, because someone will find these otherwise:
 vc keygen
 
 vc create -title "Two community grants" -winners 2 -disclosure private -open 10m
-vc enter  -draw ID -file entrants.txt
+vc enter  -draw ID -file entrants.txt -salts salts.tsv   # salts shown once
+vc leaves -draw ID                      # the published leaf list
 vc commit -draw ID                      # at the cutoff; freezes and logs the roster
 vc receipt -draw ID -index 5 -out receipt.json
 vc run    -draw ID                      # at the target round; publishes the bundle
@@ -153,8 +154,9 @@ service layer, so the API cannot permit something the CLI forbids.
 ```
 GET  /v1/operator                      public key, chain, log head
 POST /v1/draws                         create
-POST /v1/draws/{id}/entries            add entries (refused after cutoff)
+POST /v1/draws/{id}/entries            add entries; returns a salt per entrant
 POST /v1/draws/{id}/commit             freeze the roster
+GET  /v1/draws/{id}/leaves             every committed leaf, in order
 GET  /v1/draws/{id}/receipt/{index}    one entrant's inclusion proof
 POST /v1/draws/{id}/run                draw and publish
 GET  /v1/log  ·  /v1/log/abandoned     the public chain
@@ -176,7 +178,7 @@ the server. The CLI exists so nobody has to take it.
 | `translog` | append-only hash chain |
 | `service` | lifecycle and ordering enforcement |
 | `httpapi` | thin HTTP surface |
-| `bundle` | nineteen checks, no short-circuit |
+| `bundle` | twenty-one checks, no short-circuit |
 
 ## Design notes
 

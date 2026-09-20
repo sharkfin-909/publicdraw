@@ -12,7 +12,9 @@ import (
 	"github.com/sharkfin009/verifiable-challenge/beacon"
 	"github.com/sharkfin009/verifiable-challenge/bundle"
 	"github.com/sharkfin009/verifiable-challenge/draw"
+	"github.com/sharkfin009/verifiable-challenge/hashing"
 	"github.com/sharkfin009/verifiable-challenge/httpapi"
+	"github.com/sharkfin009/verifiable-challenge/merkle"
 	"github.com/sharkfin009/verifiable-challenge/roster"
 	"github.com/sharkfin009/verifiable-challenge/service"
 )
@@ -88,20 +90,47 @@ func TestFullLifecycleOverHTTP(t *testing.T) {
 	}
 	id := created.Params.DrawID
 
+	// Entering hands back one salt per entrant, there and then. That is the
+	// only moment those salts are disclosed, and holding one is what lets an
+	// entrant check their own inclusion later without a receipt reaching them.
 	var entered struct {
-		Count int `json:"entry_count"`
+		Admitted []service.Admission `json:"admitted"`
 	}
 	if code := e.do(t, "POST", "/v1/draws/"+id+"/entries",
 		map[string]any{"labels": []string{"a", "b", "c", "d", "e"}}, &entered); code != http.StatusOK {
 		t.Fatalf("entries returned %d", code)
 	}
-	if entered.Count != 5 {
-		t.Fatalf("entry count = %d, want 5", entered.Count)
+	if len(entered.Admitted) != 5 {
+		t.Fatalf("admitted %d, want 5", len(entered.Admitted))
+	}
+	for i, a := range entered.Admitted {
+		if a.Index != i || len(a.Salt) != roster.SaltSize {
+			t.Fatalf("admission %d: index=%d salt=%d bytes", i, a.Index, len(a.Salt))
+		}
 	}
 
 	*e.now = time.Unix(tCutoff, 0)
 	if code := e.do(t, "POST", "/v1/draws/"+id+"/commit", nil, nil); code != http.StatusOK {
 		t.Fatalf("commit returned %d", code)
+	}
+
+	// The published leaf list is the receipt-free path: an entrant hashes
+	// their own salt and label and looks for the result.
+	var published struct {
+		Root   string           `json:"root"`
+		Size   int              `json:"size"`
+		Leaves []hashing.Digest `json:"leaves"`
+	}
+	if code := e.do(t, "GET", "/v1/draws/"+id+"/leaves", nil, &published); code != http.StatusOK {
+		t.Fatalf("leaves returned %d", code)
+	}
+	if len(published.Leaves) != 5 {
+		t.Fatalf("published %d leaves, want 5", len(published.Leaves))
+	}
+	mine := entered.Admitted[2]
+	want := merkle.LeafHash(mine.Salt, roster.Entry{Label: mine.Label}.CanonicalBytes())
+	if published.Leaves[mine.Index] != want {
+		t.Fatal("an entrant could not find their own leaf in the published list")
 	}
 
 	var rec roster.Receipt

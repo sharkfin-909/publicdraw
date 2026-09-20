@@ -8,7 +8,7 @@ export interface Entry {
 }
 
 export interface Sealed {
-  /** base64 in the Go JSON encoding of []byte */
+  /** hex */
   salt: string
   entry: Entry
 }
@@ -55,6 +55,12 @@ export interface LogRecord {
   head: string
 }
 
+export interface Admission {
+  index: number
+  salt: string
+  label: string
+}
+
 export interface Bundle {
   version: number
   operator_pubkey: string
@@ -62,6 +68,13 @@ export interface Bundle {
   roster: {
     commitment: RosterCommitment
     signature: string
+    /**
+     * Every committed leaf, in order, published in both disclosure modes.
+     * Salted, so it discloses nothing to anyone who does not already hold the
+     * salt — and it is what lets an entrant confirm their own inclusion from
+     * the salt they were given at entry, with no receipt needing to arrive.
+     */
+    leaves: string[]
     entries?: Sealed[]
     ots_proof?: string
   }

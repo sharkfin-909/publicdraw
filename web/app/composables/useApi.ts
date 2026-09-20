@@ -1,4 +1,12 @@
-import type { Bundle, DrawSummary, LogRecord, Receipt, RosterCommitment, DrawState } from '~/lib/types'
+import type {
+  Admission,
+  Bundle,
+  DrawSummary,
+  LogRecord,
+  Receipt,
+  RosterCommitment,
+  DrawState,
+} from '~/lib/types'
 
 /**
  * Thin wrapper over the draw service.
@@ -35,11 +43,19 @@ export function useApi() {
       cutoff_at?: number
     }) => call<DrawSummary>('/draws', { method: 'POST', body }),
 
+    /**
+     * Returns one salt per entrant, and this is the only time they are
+     * disclosed. An entrant who keeps theirs can prove their own inclusion
+     * later from the published leaves alone.
+     */
     addEntries: (id: string, labels: string[]) =>
-      call<{ entry_count: number; first_index: number }>(`/draws/${id}/entries`, {
+      call<{ admitted: Admission[] }>(`/draws/${id}/entries`, {
         method: 'POST',
         body: { labels },
       }),
+
+    leaves: (id: string) =>
+      call<{ root: string; size: number; leaves: string[] }>(`/draws/${id}/leaves`),
 
     commit: (id: string) =>
       call<{ roster_commit: RosterCommitment; roster_sig: string; state: DrawState }>(

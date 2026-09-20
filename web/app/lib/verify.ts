@@ -146,26 +146,59 @@ export function verifyBundle(b: Bundle): Report {
     add('winners derive from the seed', false, 'no seed')
   }
 
+  // --- the published leaves ------------------------------------------------
+
+  const leaves = (b.roster.leaves ?? []).map((l) => {
+    try {
+      return fromHex(l)
+    } catch {
+      return new Uint8Array(0)
+    }
+  })
+
+  if (leaves.length !== rc.size) {
+    add(
+      'published leaves match the committed entry count',
+      false,
+      `bundle carries ${leaves.length} leaves, commitment says ${rc.size}`,
+    )
+    add('published leaves rebuild to the committed root', false, 'wrong leaf count')
+  } else {
+    add('published leaves match the committed entry count', true, `${rc.size} leaves`)
+    try {
+      add(
+        'published leaves rebuild to the committed root',
+        equal(rootFromLeaves(leaves), fromHex(rc.root)),
+        'root matches',
+      )
+    } catch (e) {
+      add('published leaves rebuild to the committed root', false, String(e))
+    }
+  }
+
   // --- disclosure ----------------------------------------------------------
 
   if (p.disclosure === 'public') {
     const entries = b.roster.entries ?? []
     if (entries.length !== rc.size) {
       add(
-        'published roster rebuilds to the committed root',
+        'published entries match the committed entry count',
         false,
         `bundle carries ${entries.length} entries, commitment says ${rc.size}`,
       )
     } else {
       try {
-        const leaves = entries.map((s) => leafHash(fromHex(s.salt), canonicalEntryBytes(s.entry.label)))
-        add(
-          'published roster rebuilds to the committed root',
-          equal(rootFromLeaves(leaves), fromHex(rc.root)),
-          'root matches',
-        )
+        let ok = true
+        for (let i = 0; i < entries.length; i++) {
+          const leaf = leafHash(fromHex(entries[i]!.salt), canonicalEntryBytes(entries[i]!.entry.label))
+          if (!leaves[i] || !equal(leaf, leaves[i]!)) {
+            ok = false
+            break
+          }
+        }
+        add('published entries hash to the published leaves', ok, `${entries.length} entries disclosed`)
       } catch (e) {
-        add('published roster rebuilds to the committed root', false, String(e))
+        add('published entries hash to the published leaves', false, String(e))
       }
     }
   } else if (p.disclosure === 'private') {
@@ -177,6 +210,27 @@ export function verifyBundle(b: Bundle): Report {
   } else {
     add('disclosure mode is recognised', false, `unknown mode "${p.disclosure}"`)
   }
+
+  // Winners are checked twice against different things: their leaf must sit at
+  // the claimed index in the published list, and their proof must climb to the
+  // root on its own — the latter is what makes a receipt self-contained.
+  let atIndex = b.result.winners.length > 0
+  try {
+    for (const w of b.result.winners) {
+      const leaf = leafHash(fromHex(w.salt), canonicalEntryBytes(w.entry.label))
+      if (w.index < 0 || w.index >= leaves.length || !equal(leaf, leaves[w.index]!)) {
+        atIndex = false
+        break
+      }
+    }
+  } catch {
+    atIndex = false
+  }
+  add(
+    "each winner's leaf sits at its claimed index",
+    atIndex,
+    `${b.result.winners.length} winner(s)`,
+  )
 
   let proven = b.result.winners.length > 0
   try {
@@ -236,6 +290,25 @@ export function verifyBundle(b: Bundle): Report {
 
   const skipped = checks.filter((c) => c.skipped).length
   return { ok: checks.every((c) => c.ok || c.skipped), skipped, checks }
+}
+
+/**
+ * Check inclusion from the salt an entrant was given at entry, against the
+ * published leaf list. Needs no receipt and no cooperation from the organiser
+ * beyond publishing the leaves — which is the point of publishing them.
+ */
+export function findOwnLeaf(
+  salt: string,
+  label: string,
+  leaves: string[],
+): { found: boolean; index: number; leaf: string } {
+  try {
+    const leaf = leafHash(fromHex(salt), canonicalEntryBytes(label))
+    const hex = toHex(leaf)
+    return { found: leaves.includes(hex), index: leaves.indexOf(hex), leaf: hex }
+  } catch {
+    return { found: false, index: -1, leaf: '' }
+  }
 }
 
 /** Check one entrant's receipt against the root it claims membership in. */

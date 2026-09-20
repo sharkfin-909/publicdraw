@@ -1,0 +1,42 @@
+[
+  {
+    "index": 0,
+    "salt": "bb9d7bf6f1c9ccc238b2dca3e9fce96b56563868ab79ba5503a7ab62e6d57308",
+    "label": "alice@example.com"
+  },
+  {
+    "index": 1,
+    "salt": "f430e1c0ab393d8fe2672045f201f156f6957457f1a7d310bbfaa6cb08d175b0",
+    "label": "bob@example.com"
+  },
+  {
+    "index": 2,
+    "salt": "07664ebb0c095359443c2164f998d62fc62db7109bec49de2e0aa131c9390d8e",
+    "label": "carol@example.com"
+  },
+  {
+    "index": 3,
+    "salt": "2131a710185eeceb02792114ff5d4a46beca70d1b09bc550747672dab9a341f8",
+    "label": "dave@example.com"
+  },
+  {
+    "index": 4,
+    "salt": "812aca00df14465a18dc25066dd1405682fae56c389f25eef5808c3a18f9f983",
+    "label": "erin@example.com"
+  },
+  {
+    "index": 5,
+    "salt": "43c479eb355d10be5c7d38d9c54a2618289d324161b39c612f7d27d8cc49a1da",
+    "label": "frank@example.com"
+  },
+  {
+    "index": 6,
+    "salt": "648ea5121377ef9f34a08bc99b7a35efd3d19d5707e3e7262c9da091731d1485",
+    "label": "grace@example.com"
+  },
+  {
+    "index": 7,
+    "salt": "d9969aa4de9ea0733397ec3a5589a2b758767d2b95c1cfc787257318b918b887",
+    "label": "heidi@example.com"
+  }
+]

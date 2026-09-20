@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { verifyBundle, verifyReceipt } from '../app/lib/verify'
-import type { Bundle, Receipt } from '../app/lib/types'
+import { verifyBundle, verifyReceipt, findOwnLeaf } from '../app/lib/verify'
+import type { Admission, Bundle, Receipt } from '../app/lib/types'
 
 /**
  * A real draw, produced by the Go service against a live drand round and
@@ -13,6 +13,7 @@ import type { Bundle, Receipt } from '../app/lib/types'
 const at = (n: string) => fileURLToPath(new URL(`./fixtures/${n}`, import.meta.url))
 const bundle = JSON.parse(readFileSync(at('live-bundle.json'), 'utf8')) as Bundle
 const receipt = JSON.parse(readFileSync(at('live-receipt.json'), 'utf8')) as Receipt
+const admissions = JSON.parse(readFileSync(at('live-admissions.json'), 'utf8')) as Admission[]
 
 describe('a live bundle from the Go service', () => {
   it('verifies in the browser implementation', () => {
@@ -54,5 +55,34 @@ describe('a live bundle from the Go service', () => {
 
   it('rejects an altered receipt label', () => {
     expect(verifyReceipt({ ...receipt, entry: { label: 'someone else' } })).toBe(false)
+  })
+
+  // The receipt-free path: an entrant holding the salt they were handed when
+  // they entered can find their own leaf in the published list, with nothing
+  // having had to be delivered to them at the cutoff.
+  it('lets every entrant find their own leaf from the salt they were given', () => {
+    expect(admissions.length).toBe(bundle.roster.leaves.length)
+    for (const a of admissions) {
+      const found = findOwnLeaf(a.salt, a.label, bundle.roster.leaves)
+      expect(found.found).toBe(true)
+      expect(found.index).toBe(a.index)
+    }
+  })
+
+  it('does not find a leaf for someone who never entered', () => {
+    const a = admissions[0]!
+    expect(findOwnLeaf(a.salt, 'someone-who-never-entered', bundle.roster.leaves).found).toBe(false)
+  })
+
+  it('rejects a bundle whose published leaves were pruned', () => {
+    const t = structuredClone(bundle)
+    t.roster.leaves.splice(3, 1)
+    expect(verifyBundle(t).ok).toBe(false)
+  })
+
+  it('rejects a bundle whose published leaves were substituted', () => {
+    const t = structuredClone(bundle)
+    t.roster.leaves[2] = '00'.repeat(32)
+    expect(verifyBundle(t).ok).toBe(false)
   })
 })

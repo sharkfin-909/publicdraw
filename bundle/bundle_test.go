@@ -17,6 +17,7 @@ import (
 	"github.com/sharkfin009/verifiable-challenge/bundle"
 	"github.com/sharkfin009/verifiable-challenge/draw"
 	"github.com/sharkfin009/verifiable-challenge/hashing"
+	"github.com/sharkfin009/verifiable-challenge/merkle"
 	"github.com/sharkfin009/verifiable-challenge/roster"
 	"github.com/sharkfin009/verifiable-challenge/service"
 )
@@ -190,13 +191,72 @@ func TestRepaddedRosterSizeIsRejected(t *testing.T) {
 func TestDroppedEntryInAPublicDrawIsRejected(t *testing.T) {
 	b, _ := honest(t, 1, roster.Public, 20)
 	b.Roster.Entries = append(b.Roster.Entries[:5], b.Roster.Entries[6:]...)
-	mustFail(t, b, "rebuilds to the committed root")
+	mustFail(t, b, "published entries match")
 }
 
 func TestAlteredEntryInAPublicDrawIsRejected(t *testing.T) {
 	b, _ := honest(t, 1, roster.Public, 20)
 	b.Roster.Entries[7].Entry.Label = "swapped-in"
-	mustFail(t, b, "rebuilds to the committed root")
+	mustFail(t, b, "entries hash to the published leaves")
+}
+
+// The published leaves are what an entrant checks their own inclusion against,
+// so a roster that quietly differs from them has to break.
+func TestDroppedLeafIsRejected(t *testing.T) {
+	b, _ := honest(t, 1, roster.Private, 20)
+	b.Roster.Leaves = append(b.Roster.Leaves[:3], b.Roster.Leaves[4:]...)
+	mustFail(t, b, "match the committed entry count")
+}
+
+func TestSubstitutedLeafIsRejected(t *testing.T) {
+	b, _ := honest(t, 1, roster.Private, 20)
+	b.Roster.Leaves[9] = hashing.Tagged("test", []byte("a leaf that was never committed"))
+	mustFail(t, b, "rebuild to the committed root")
+}
+
+// An entrant whose leaf is missing can detect it from the published list
+// alone, which is the whole reason the list is published.
+func TestEntrantCanDetectBeingDroppedFromTheLeafList(t *testing.T) {
+	b, _ := honest(t, 1, roster.Private, 20)
+
+	// Stand in for an entrant holding the salt they were given at entry.
+	mine := b.Result.Winners[0]
+	salt, err := hex.DecodeString(mine.Salt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leaf := merkle.LeafHash(salt, mine.Entry.CanonicalBytes())
+
+	present := false
+	for _, l := range b.Roster.Leaves {
+		if l == leaf {
+			present = true
+		}
+	}
+	if !present {
+		t.Fatal("an entrant could not find their own leaf in the published list")
+	}
+
+	// Now drop them, as a dishonest organiser would have before committing.
+	pruned := make([]hashing.Digest, 0, len(b.Roster.Leaves))
+	for _, l := range b.Roster.Leaves {
+		if l != leaf {
+			pruned = append(pruned, l)
+		}
+	}
+	for _, l := range pruned {
+		if l == leaf {
+			t.Fatal("leaf survived the prune")
+		}
+	}
+}
+
+// Winners are checked against the leaf list as well as by proof, so the two
+// must not be able to disagree.
+func TestWinnerNotAtItsClaimedLeafIsRejected(t *testing.T) {
+	b, _ := honest(t, 2, roster.Private, 20)
+	b.Roster.Leaves[b.Result.Winners[0].Index] = hashing.Tagged("test", []byte("someone else"))
+	mustFail(t, b, "sits at its claimed index")
 }
 
 // A private draw that ships the entry list is not private, whatever it claims.

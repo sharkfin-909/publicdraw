@@ -159,6 +159,54 @@ func TestEntriesRefusedAfterCutoff(t *testing.T) {
 	}
 }
 
+// Salts are issued when an entrant enters, not when the roster is frozen, so
+// the entrant holds their own evidence from that moment.
+func TestEnterReturnsASaltPerEntrantImmediately(t *testing.T) {
+	h := newHarness(t)
+	st, _ := h.Create("t", 1, roster.Private, time.Unix(tCutoff, 0))
+
+	admitted, err := h.Enter(st.Params.DrawID, "alice", "bob", "carol")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(admitted) != 3 {
+		t.Fatalf("got %d admissions, want 3", len(admitted))
+	}
+	seen := map[string]bool{}
+	for i, a := range admitted {
+		if a.Index != i {
+			t.Errorf("admission %d has index %d", i, a.Index)
+		}
+		if len(a.Salt) != roster.SaltSize {
+			t.Errorf("admission %d has a %d-byte salt", i, len(a.Salt))
+		}
+		if seen[a.Salt.String()] {
+			t.Errorf("salt reused at index %d", i)
+		}
+		seen[a.Salt.String()] = true
+	}
+
+	// The salt handed out at entry must be the one committed at the cutoff.
+	more, err := h.Enter(st.Params.DrawID, "dave")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.set(tCutoff)
+	if _, err := h.CommitRoster(st.Params.DrawID); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := h.Get(st.Params.DrawID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Sealed[more[0].Index].Salt.String() != more[0].Salt.String() {
+		t.Fatal("the committed salt is not the one the entrant was given")
+	}
+	if stored.Sealed[more[0].Index].Entry.Label != "dave" {
+		t.Fatal("the committed label is not the one at that index")
+	}
+}
+
 func TestRosterCannotBeCommittedTwice(t *testing.T) {
 	h := newHarness(t)
 	st, _ := h.Create("t", 1, roster.Private, time.Unix(tCutoff, 0))

@@ -48,7 +48,21 @@ type DrawRef struct {
 type RosterRef struct {
 	Commitment draw.RosterCommitment `json:"commitment"`
 	Signature  string                `json:"signature"`
-	Entries    []roster.Sealed       `json:"entries,omitempty"`
+
+	// Leaves is every committed leaf, in order, published in both disclosure
+	// modes. A leaf is H(tag, salt, label) with 32 bytes of fresh randomness,
+	// so it tells nobody anything about the label unless they already hold
+	// that salt — and only the entrant does.
+	//
+	// It buys two things. The root becomes independently rebuildable even for
+	// a private draw, so verification no longer rests on per-winner proofs
+	// alone. And every entrant can confirm their own inclusion from the salt
+	// they were given at entry, without a receipt having to reach them —
+	// which matters because a receipt that never arrived looks exactly like
+	// one that was never issued.
+	Leaves []hashing.Digest `json:"leaves"`
+
+	Entries []roster.Sealed `json:"entries,omitempty"`
 	// OTSProof is a base64 OpenTimestamps proof over the log head. It is what
 	// establishes that the commitments predate the beacon round to someone who
 	// does not trust the operator's clock.
@@ -193,17 +207,36 @@ func Verify(b Bundle, chain beacon.Chain) Report {
 		}
 	}
 
+	// --- the published leaves --------------------------------------------
+
+	if len(b.Roster.Leaves) != rc.Size {
+		rep.add("published leaves match the committed entry count", false,
+			"bundle carries %d leaves, commitment says %d", len(b.Roster.Leaves), rc.Size)
+		rep.add("published leaves rebuild to the committed root", false, "wrong leaf count")
+	} else {
+		rep.add("published leaves match the committed entry count", true, "%d leaves", rc.Size)
+		got, err := roster.RootFromLeaves(b.Roster.Leaves)
+		rep.add("published leaves rebuild to the committed root",
+			err == nil && got == rc.Root, "%s", detail(err, "root matches"))
+	}
+
 	// --- disclosure -------------------------------------------------------
 
 	switch p.Disclosure {
 	case roster.Public:
 		if len(b.Roster.Entries) != rc.Size {
-			rep.add("published roster rebuilds to the committed root", false,
+			rep.add("published entries match the committed entry count", false,
 				"bundle carries %d entries, commitment says %d", len(b.Roster.Entries), rc.Size)
 		} else {
-			got, err := roster.Rebuild(b.Roster.Entries)
-			rep.add("published roster rebuilds to the committed root",
-				err == nil && got == rc.Root, "%s", detail(err, "root matches"))
+			ok := true
+			for i, e := range b.Roster.Entries {
+				if i >= len(b.Roster.Leaves) || e.Leaf() != b.Roster.Leaves[i] {
+					ok = false
+					break
+				}
+			}
+			rep.add("published entries hash to the published leaves", ok,
+				"%d entries disclosed", len(b.Roster.Entries))
 		}
 	case roster.Private:
 		rep.add("private disclosure withholds the entry list",
@@ -211,6 +244,13 @@ func Verify(b Bundle, chain beacon.Chain) Report {
 	default:
 		rep.add("disclosure mode is recognised", false, "unknown mode %q", p.Disclosure)
 	}
+
+	// Winners are checked twice, against different things: their leaf must sit
+	// at the claimed index in the published list, and their Merkle proof must
+	// climb to the root on its own. The second is what makes a receipt
+	// self-contained, so an entrant can verify without downloading every leaf.
+	rep.add("each winner's leaf sits at its claimed index",
+		winnersAtIndex(b), "%d winner(s)", len(b.Result.Winners))
 
 	rep.add("each winner is proven to be in the committed roster",
 		winnersProven(b, rc), "%d proof(s)", len(b.Result.Winners))
@@ -244,6 +284,22 @@ func Verify(b Bundle, chain beacon.Chain) Report {
 		}
 	}
 	return rep
+}
+
+func winnersAtIndex(b Bundle) bool {
+	if len(b.Result.Winners) == 0 {
+		return false
+	}
+	for _, w := range b.Result.Winners {
+		salt, err := hex.DecodeString(w.Salt)
+		if err != nil || w.Index < 0 || w.Index >= len(b.Roster.Leaves) {
+			return false
+		}
+		if merkle.LeafHash(salt, w.Entry.CanonicalBytes()) != b.Roster.Leaves[w.Index] {
+			return false
+		}
+	}
+	return true
 }
 
 func winnersProven(b Bundle, rc draw.RosterCommitment) bool {

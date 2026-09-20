@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { Bundle, DrawSummary } from '~/lib/types'
-import { verifyBundle, type Report } from '~/lib/verify'
+import type { Admission, Bundle, DrawSummary } from '~/lib/types'
+import { verifyBundle, findOwnLeaf, type Report } from '~/lib/verify'
 import { timeOfRound } from '~/lib/beacon'
 
 const route = useRoute()
@@ -16,8 +16,15 @@ const busy = ref('')
 useHead(() => ({ title: draw.value ? `${draw.value.params.title} — truedraw` : 'Draw — truedraw' }))
 
 const entriesText = ref('')
+const admitted = ref<Admission[]>([])
 const receiptIndex = ref(0)
 const receiptResult = ref<{ ok: boolean; label: string; root: string } | null>(null)
+
+// The receipt-free inclusion check: an entrant pastes the salt they were given
+// when they entered, and the page looks for their leaf in the published list.
+const leafList = ref<{ root: string; size: number; leaves: string[] }>()
+const selfCheck = reactive({ salt: '', label: '' })
+const selfResult = ref<{ found: boolean; index: number; leaf: string } | null>(null)
 
 const { published } = useCountdown(() => draw.value?.params.target_round)
 
@@ -25,6 +32,7 @@ async function load() {
   err.value = ''
   try {
     draw.value = await api.getDraw(id.value)
+    if (draw.value.state !== 'open') await loadLeaves()
     if (draw.value.state === 'drawn') await pullBundle()
   } catch (e) {
     err.value = errorText(e)
@@ -59,9 +67,24 @@ const addEntries = () =>
   act('enter', async () => {
     const labels = entriesText.value.split('\n').map((l) => l.trim()).filter(Boolean)
     if (!labels.length) throw new Error('Add at least one entry, one per line')
-    await api.addEntries(id.value, labels)
+    const { admitted: rows } = await api.addEntries(id.value, labels)
+    admitted.value = [...admitted.value, ...rows]
     entriesText.value = ''
   })
+
+async function loadLeaves() {
+  try {
+    leafList.value = await api.leaves(id.value)
+  } catch {
+    leafList.value = undefined
+  }
+}
+
+function runSelfCheck() {
+  selfResult.value = leafList.value
+    ? findOwnLeaf(selfCheck.salt.trim(), selfCheck.label.trim(), leafList.value.leaves)
+    : null
+}
 
 const commit = () => act('commit', () => api.commit(id.value))
 const run = () => act('run', () => api.run(id.value))
@@ -138,6 +161,7 @@ onMounted(load)
               {{ busy === 'enter' ? 'Adding…' : 'Add entries' }}
             </button>
           </div>
+          <AdmissionList v-if="admitted.length" :admitted="admitted" />
         </template>
         <div v-else class="notice" style="margin-top: 10px">
           The cutoff has passed. Entries are closed — freeze the roster to continue.
@@ -189,6 +213,42 @@ onMounted(load)
           </a>
         </div>
         <CheckList :report="report" />
+      </section>
+
+      <!-- Self-check against the published leaves -->
+      <section v-if="leafList" class="card">
+        <h2>Check your own entry</h2>
+        <p class="muted" style="font-size: 0.86rem">
+          {{ leafList.size }} leaves published. If you entered, you were given a salt at that
+          moment — paste it with your entry and this page will look for you in the committed list.
+          Nothing is sent anywhere; the check runs here.
+        </p>
+        <div class="grid" style="margin-top: 12px">
+          <div>
+            <label for="sc-label">Your entry</label>
+            <input id="sc-label" v-model="selfCheck.label" placeholder="alice@example.com" />
+          </div>
+          <div>
+            <label for="sc-salt">Your salt</label>
+            <input id="sc-salt" v-model="selfCheck.salt" placeholder="bb9d7bf6…" />
+          </div>
+        </div>
+        <div class="row" style="margin-top: 10px">
+          <button class="ghost" :disabled="!selfCheck.salt || !selfCheck.label" @click="runSelfCheck">
+            Look for my entry
+          </button>
+        </div>
+        <div v-if="selfResult" style="margin-top: 12px">
+          <p v-if="selfResult.found" style="color: var(--teal); font-weight: 600">
+            Found — you are entry #{{ selfResult.index }} of {{ leafList.size }} in the committed
+            roster.
+          </p>
+          <p v-else style="color: var(--fault); font-weight: 600">
+            Not found. Your entry is not in the committed list — check the salt and entry are exactly
+            as issued before concluding anything.
+          </p>
+          <p class="hash">leaf {{ selfResult.leaf || '—' }}</p>
+        </div>
       </section>
 
       <!-- Receipts -->

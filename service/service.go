@@ -39,7 +39,6 @@ type Stored struct {
 	Params       draw.Params            `json:"params"`
 	ParamsSig    string                 `json:"params_sig"`
 	State        State                  `json:"state"`
-	Labels       []string               `json:"labels,omitempty"`
 	Sealed       []roster.Sealed        `json:"sealed,omitempty"`
 	RosterCommit *draw.RosterCommitment `json:"roster_commit,omitempty"`
 	RosterSig    string                 `json:"roster_sig,omitempty"`
@@ -156,30 +155,55 @@ func (s *Service) Create(title string, winners int, disc roster.Disclosure, cuto
 	return st, nil
 }
 
-// Enter appends entries. It refuses after the cutoff: a list that can still
-// grow once the roster is committed is not a committed list.
-func (s *Service) Enter(id string, labels ...string) (int, error) {
+// Admission is what an entrant is handed the moment they enter: their
+// position, and the salt that hides their label in the tree.
+//
+// Handing the salt over now rather than at the cutoff is what makes the
+// entrant's later self-check possible without anything having to be delivered
+// to them. A receipt that never arrived is indistinguishable from one that was
+// never issued; a salt held since entry is not.
+type Admission struct {
+	Index int         `json:"index"`
+	Salt  roster.Salt `json:"salt"`
+	Label string      `json:"label"`
+}
+
+// Enter appends entries, salting each one as it arrives, and returns what each
+// entrant needs to keep.
+//
+// It refuses after the cutoff: a list that can still grow once the roster is
+// committed is not a committed list.
+func (s *Service) Enter(id string, labels ...string) ([]Admission, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	st, err := s.load(id)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	if st.State != StateOpen {
-		return 0, fmt.Errorf("service: draw %s is %s, not open", id, st.State)
+		return nil, fmt.Errorf("service: draw %s is %s, not open", id, st.State)
 	}
 	if s.now().Unix() >= st.Params.CutoffAt {
-		return 0, fmt.Errorf("service: entries for %s closed at %d", id, st.Params.CutoffAt)
+		return nil, fmt.Errorf("service: entries for %s closed at %d", id, st.Params.CutoffAt)
 	}
 	if len(labels) == 0 {
-		return len(st.Labels), nil
+		return nil, nil
 	}
-	st.Labels = append(st.Labels, labels...)
+
+	out := make([]Admission, 0, len(labels))
+	for _, l := range labels {
+		sealed, err := roster.SealOne(l)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, Admission{Index: len(st.Sealed), Salt: sealed.Salt, Label: l})
+		st.Sealed = append(st.Sealed, sealed)
+	}
 	if err := s.save(st); err != nil {
-		return 0, err
+		return nil, err
 	}
-	return len(st.Labels), nil
+	return out, nil
 }
 
 // CommitRoster freezes the entry list, signs it and logs it. It must happen at
@@ -196,15 +220,17 @@ func (s *Service) CommitRoster(id string) (*Stored, error) {
 	if st.State != StateOpen {
 		return nil, fmt.Errorf("service: draw %s is already %s", id, st.State)
 	}
-	if len(st.Labels) < st.Params.Winners {
-		return nil, fmt.Errorf("service: %d entries cannot yield %d winners", len(st.Labels), st.Params.Winners)
+	if len(st.Sealed) < st.Params.Winners {
+		return nil, fmt.Errorf("service: %d entries cannot yield %d winners", len(st.Sealed), st.Params.Winners)
 	}
 	now := s.now()
 	if now.Unix() >= s.chain.TimeOf(st.Params.TargetRound).Unix() {
 		return nil, fmt.Errorf("service: round %d has already published; this draw can no longer be committed honestly", st.Params.TargetRound)
 	}
 
-	r, err := roster.Seal(st.Labels)
+	// Entries were salted on arrival, so freezing is only a matter of
+	// committing to the order they already sit in.
+	r, err := roster.Load(st.Sealed)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +238,6 @@ func (s *Service) CommitRoster(id string) (*Stored, error) {
 	if err != nil {
 		return nil, err
 	}
-	st.Sealed = r.Sealed
 	st.RosterCommit = &rc
 	st.RosterSig = hex.EncodeToString(sig)
 	st.State = StateCommitted
@@ -326,7 +351,7 @@ func (s *Service) assemble(st *Stored, r beacon.Round) (bundle.Bundle, error) {
 		}
 	}
 
-	rref := bundle.RosterRef{Commitment: rc, Signature: st.RosterSig}
+	rref := bundle.RosterRef{Commitment: rc, Signature: st.RosterSig, Leaves: ros.Leaves()}
 	if st.Params.Disclosure == roster.Public {
 		rref.Entries = st.Sealed
 	}
