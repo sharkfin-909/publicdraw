@@ -1,0 +1,6 @@
+# esbuild's postinstall is not needed here: vite ships its own transformer and
+# no @esbuild platform package is installed. Ignoring it, and skipping pnpm's
+# pre-run dependency check, stops every script failing on that one warning.
+ignoredBuiltDependencies:
+  - esbuild
+verifyDepsBeforeRun: false

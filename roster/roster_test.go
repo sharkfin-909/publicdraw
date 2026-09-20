@@ -128,7 +128,7 @@ func TestDisclosureValidation(t *testing.T) {
 
 func TestLoadRejectsShortSalt(t *testing.T) {
 	r, _ := Seal(labels(3))
-	r.Sealed[1].Salt = []byte("short")
+	r.Sealed[1].Salt = Salt([]byte("short"))
 	if _, err := Load(r.Sealed); err == nil {
 		t.Fatal("accepted a truncated salt")
 	}

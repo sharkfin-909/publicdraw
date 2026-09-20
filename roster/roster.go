@@ -10,6 +10,7 @@ package roster
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -44,6 +45,34 @@ const (
 // Valid reports whether d is a known disclosure mode.
 func (d Disclosure) Valid() bool { return d == Public || d == Private }
 
+// Salt is a per-entry salt.
+//
+// It marshals as hex rather than Go's default base64 for []byte, because the
+// same salt appears as hex in a receipt and in a winner's reveal. One field
+// with two encodings in one published bundle is a trap for any other
+// implementation that has to parse it.
+type Salt []byte
+
+// MarshalJSON encodes the salt as a hex string.
+func (s Salt) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + hex.EncodeToString(s) + `"`), nil
+}
+
+// UnmarshalJSON decodes a hex-string salt.
+func (s *Salt) UnmarshalJSON(b []byte) error {
+	if len(b) < 2 || b[0] != '"' || b[len(b)-1] != '"' {
+		return errors.New("roster: salt must be a hex string")
+	}
+	raw, err := hex.DecodeString(string(b[1 : len(b)-1]))
+	if err != nil {
+		return fmt.Errorf("roster: salt: %w", err)
+	}
+	*s = raw
+	return nil
+}
+
+func (s Salt) String() string { return hex.EncodeToString(s) }
+
 // Entry is one candidate for selection. Label is opaque to this package: a
 // name, an email, a ticket number, a wallet address — whatever the organiser
 // uses to identify a participant.
@@ -58,8 +87,8 @@ func (e Entry) CanonicalBytes() []byte {
 
 // Sealed is an entry with the salt that hides it in the committed tree.
 type Sealed struct {
-	Salt  []byte `json:"salt"`
-	Entry Entry  `json:"entry"`
+	Salt  Salt  `json:"salt"`
+	Entry Entry `json:"entry"`
 }
 
 // Leaf computes this entry's Merkle leaf.
@@ -100,7 +129,7 @@ func Seal(labels []string) (*Roster, error) {
 		if _, err := rand.Read(salt); err != nil {
 			return nil, fmt.Errorf("roster: salt: %w", err)
 		}
-		sealed[i] = Sealed{Salt: salt, Entry: Entry{Label: l}}
+		sealed[i] = Sealed{Salt: Salt(salt), Entry: Entry{Label: l}}
 	}
 	return Load(sealed)
 }

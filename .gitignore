@@ -1,7 +1,11 @@
-node_modules
-dist
-/vc
+!.env.example
 .DS_Store
 .env
 .env.*
-!.env.example
+/vc
+dist
+node_modules
+vcdata/
+web/.nuxt
+web/.output
+web/node_modules
