@@ -112,3 +112,16 @@ func (d *Digest) UnmarshalJSON(b []byte) error {
 	*d = parsed
 	return nil
 }
+
+// Tags introduced for verifiable draws. Each keeps one kind of digest from
+// ever being valid as another.
+const (
+	TagEntry      = "vc/roster/entry/v1"  // canonical encoding of an entry
+	TagRoster     = "vc/roster/commit/v1" // root+size, committed at cutoff
+	TagDraw       = "vc/draw/params/v1"   // draw parameters, committed at creation
+	TagRosterSig  = "vc/draw/roster/v1"   // the operator's signature over a roster
+	TagSeed       = "vc/draw/seed/v1"     // beacon -> draw seed
+	TagTicket     = "vc/draw/ticket/v1"   // per-entry sort key
+	TagLogEntry   = "vc/log/entry/v1"     // one append-only log record
+	TagLogGenesis = "vc/log/genesis/v1"   // the empty log head
+)

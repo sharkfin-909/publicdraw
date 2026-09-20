@@ -1,12 +1,16 @@
 {
-  "_note": "Cross-implementation contract. Every value here must be reproduced byte-for-byte by any other implementation of this protocol.",
+  "_note": "Cross-implementation contract. Every value must be reproduced byte-for-byte by any other implementation.",
   "tags": {
-    "challenge": "vc/pool/challenge/v1",
-    "commit": "vc/pool/commit/v1",
+    "draw": "vc/draw/params/v1",
+    "entry": "vc/roster/entry/v1",
     "leaf": "vc/pool/leaf/v1",
+    "log_entry": "vc/log/entry/v1",
+    "log_genesis": "vc/log/genesis/v1",
     "node": "vc/pool/node/v1",
-    "select": "vc/select/v1",
-    "session": "vc/session/v1"
+    "roster": "vc/roster/commit/v1",
+    "roster_sig": "vc/draw/roster/v1",
+    "seed": "vc/draw/seed/v1",
+    "ticket": "vc/draw/ticket/v1"
   },
   "length_prefix": [
     {
@@ -35,20 +39,20 @@
       "out": "510b382b6f94679db646ec84b2d9eb8e7970b32a8b4d3ab61b13b4715d7bde4c"
     },
     {
-      "tag": "vc/select/v1",
+      "tag": "vc/draw/seed/v1",
       "parts_hex": [
         "6162",
         "63646566"
       ],
-      "out": "ce15fcc932e391d4545304d64cdb40bb41642dfb22524309806fba8513741f38"
+      "out": "800eb6877920223141f28d12e4a9efcf4e41f165ef18e1f1b2d18c8147ace89f"
     },
     {
-      "tag": "vc/select/v1",
+      "tag": "vc/draw/seed/v1",
       "parts_hex": [
         "616263",
         "646566"
       ],
-      "out": "a60034102e8b8784cfdf4a998562c629630cc0bef1be44dbd4a98eaf79ccbe3e"
+      "out": "e9d2436b187afb4522e14d70b0f12b3727858cfb3f936a5adc5e6bc8bcfb11d2"
     },
     {
       "tag": "vc/pool/node/v1",
@@ -56,7 +60,7 @@
       "out": "d7c79c3dcb857f25878b50675f3a58da5bcb4ab1399c09df4d168de70db8bfa7"
     }
   ],
-  "pool_leaf": [
+  "roster_leaf": [
     {
       "salt_hex": "0000000000000000000000000000000000000000000000000000000000000000",
       "entry_hex": "",
@@ -69,9 +73,9 @@
     }
   ],
   "merkle_node": {
-    "left": "331d7005b82c5026fcb4809477e8c5582a9ff226e1c13eef687c6d4250da1f08",
-    "right": "a559360bedfff3b98e4a7826c3bc4f7774075f088fd1222625f00f8b401211f8",
-    "node": "71e474ea22f6dc7b203fac269808a7e553ae58dfea5d7bf9947fc1ed604f2787"
+    "Left": "331d7005b82c5026fcb4809477e8c5582a9ff226e1c13eef687c6d4250da1f08",
+    "Right": "a559360bedfff3b98e4a7826c3bc4f7774075f088fd1222625f00f8b401211f8",
+    "Out": "71e474ea22f6dc7b203fac269808a7e553ae58dfea5d7bf9947fc1ed604f2787"
   },
   "merkle_roots": [
     {
@@ -115,104 +119,191 @@
       "root": "eb48373bf86fedb6e8c7190055d90cd034bd31aa0aa71f3fc369838d9258770e"
     }
   ],
-  "challenge_canonical": [
+  "entry_canonical": [
     {
-      "challenge": {
-        "id": "",
-        "language": "",
-        "title": "",
-        "prompt": "",
-        "starter_code": ""
-      },
-      "canonical_hex": "0000000000000000000000000000000000000000",
-      "leaf_with_zero_salt": "046483e884004424bc8819a332fa4e6253af3aca90bc26c92f3450f7bf79b23b"
+      "label": "",
+      "canonical_hex": "00000000",
+      "leaf_with_zero_salt": "75dffd29ce7f6d6a0c28e8596fe478dffb96fc9793ac80148607e01678d7f5f5"
     },
     {
-      "challenge": {
-        "id": "lru-cache",
-        "language": "go",
-        "title": "LRU cache",
-        "prompt": "Implement an LRU cache.",
-        "starter_code": "package main\n"
-      },
-      "canonical_hex": "000000096c72752d636163686500000002676f000000094c525520636163686500000017496d706c656d656e7420616e204c52552063616368652e0000000d7061636b616765206d61696e0a",
-      "leaf_with_zero_salt": "c855ebed633c27cd04c6fb312676754620bc3964a640e5c999151211527f8fff"
+      "label": "alice@example.com",
+      "canonical_hex": "00000011616c696365406578616d706c652e636f6d",
+      "leaf_with_zero_salt": "6c2a1829a9259f8a8512293075bc4a5892f469f69f7edffddf33b7a2c032098a"
     },
     {
-      "challenge": {
-        "id": "ab",
-        "language": "cd",
-        "title": "",
-        "prompt": "",
-        "starter_code": ""
-      },
-      "canonical_hex": "000000026162000000026364000000000000000000000000",
-      "leaf_with_zero_salt": "59a54188b082ac336e1102c6ae70829aea08045404aa04cb1f6b07434b1a6019"
+      "label": "ab",
+      "canonical_hex": "000000026162",
+      "leaf_with_zero_salt": "08582e7b2f94571a837d59eadc211c5ad78951f5563045498a23af62fa803ec6"
     },
     {
-      "challenge": {
-        "id": "abc",
-        "language": "d",
-        "title": "",
-        "prompt": "",
-        "starter_code": ""
-      },
-      "canonical_hex": "000000036162630000000164000000000000000000000000",
-      "leaf_with_zero_salt": "030f5834b726e48bbf0a5f832d8092beb7ad98ed86b1da23898dc3e51d03aef1"
+      "label": "abc",
+      "canonical_hex": "00000003616263",
+      "leaf_with_zero_salt": "73b70715b67bbc6c1b791bd0999b33fba7c39b5e1445fb93112dd761b89a52e9"
     }
   ],
-  "pool_commit": [
+  "roster_commit": [
     {
-      "root": "6f6fc391bef75df38f2698397ea18585dd0e5af0e3f1835493cc00eaf598ad56",
+      "root": "953de11cc39f25d8b87be37b0762539cca4d78b8db71df8a64a9c8ebf63ca502",
       "size": 1,
-      "commit": "bcc17041dd94e8a4f5da509edfa3477217d5f7d21ffe72335a91ff28fca3d5ee"
+      "commit": "e6e323e5a24eed9d8037684731b3259e339b1f30dc633af57ceb5f3acd7acd6a"
     },
     {
-      "root": "6f6fc391bef75df38f2698397ea18585dd0e5af0e3f1835493cc00eaf598ad56",
+      "root": "953de11cc39f25d8b87be37b0762539cca4d78b8db71df8a64a9c8ebf63ca502",
       "size": 5,
-      "commit": "f0f9a2f4b6dc2ee0df7f7f7fa43870ce4b80193bf5e3be1542845176f6dc91e1"
+      "commit": "fbaa28c9c56845ae1acc59352fca12047772e7f2e90e86c6c69a71f8b711a721"
     },
     {
-      "root": "6f6fc391bef75df38f2698397ea18585dd0e5af0e3f1835493cc00eaf598ad56",
+      "root": "953de11cc39f25d8b87be37b0762539cca4d78b8db71df8a64a9c8ebf63ca502",
       "size": 1000,
-      "commit": "6e07ebf51c143290ff6a6ccfe540e8a7d4f32e5db8c9bbd2cbc52da5b3d7a415"
+      "commit": "f8b472c86498880217bc979a89af191542f2b7ac648c53ce475daa7c15884f95"
     }
   ],
-  "select_index": [
+  "draw_seed": [
     {
-      "pool_root": "6f6fc391bef75df38f2698397ea18585dd0e5af0e3f1835493cc00eaf598ad56",
-      "pool_size": 1,
+      "roster_root": "953de11cc39f25d8b87be37b0762539cca4d78b8db71df8a64a9c8ebf63ca502",
+      "roster_size": 1,
       "randomness": "52f83e5a3a4de4f86754ef25ce771b22ba59963eb18ac1d6a03bc9d9f1478334",
-      "session_id": "s",
-      "index": 0
+      "draw_id": "d",
+      "seed": "d8f41387f5a1a162670689aee3ff5d1160832464a1b00620c963b61ec447c1ba"
     },
     {
-      "pool_root": "6f6fc391bef75df38f2698397ea18585dd0e5af0e3f1835493cc00eaf598ad56",
-      "pool_size": 5,
+      "roster_root": "953de11cc39f25d8b87be37b0762539cca4d78b8db71df8a64a9c8ebf63ca502",
+      "roster_size": 5,
       "randomness": "52f83e5a3a4de4f86754ef25ce771b22ba59963eb18ac1d6a03bc9d9f1478334",
-      "session_id": "3f1c9a77b2e04d18",
-      "index": 1
+      "draw_id": "3f1c9a77b2e04d18",
+      "seed": "258090dba7e94207e2551f48ce93613ac22c0093ca75342821bc551dd193a5fc"
     },
     {
-      "pool_root": "6f6fc391bef75df38f2698397ea18585dd0e5af0e3f1835493cc00eaf598ad56",
-      "pool_size": 1000,
+      "roster_root": "953de11cc39f25d8b87be37b0762539cca4d78b8db71df8a64a9c8ebf63ca502",
+      "roster_size": 1000,
       "randomness": "52f83e5a3a4de4f86754ef25ce771b22ba59963eb18ac1d6a03bc9d9f1478334",
-      "session_id": "session-0",
-      "index": 535
+      "draw_id": "draw-0",
+      "seed": "5bd2fa113c38e36214a5bf686b34a5b36542d57c4f0f7cf57b3f8aeb354cada1"
     },
     {
-      "pool_root": "6f6fc391bef75df38f2698397ea18585dd0e5af0e3f1835493cc00eaf598ad56",
-      "pool_size": 1000,
+      "roster_root": "953de11cc39f25d8b87be37b0762539cca4d78b8db71df8a64a9c8ebf63ca502",
+      "roster_size": 64,
       "randomness": "52f83e5a3a4de4f86754ef25ce771b22ba59963eb18ac1d6a03bc9d9f1478334",
-      "session_id": "session-1",
-      "index": 645
+      "draw_id": "",
+      "seed": "8ed8037087826056b8f622202ac836da93951d7bcfba0dfdb2f24ecbefefcd5d"
+    }
+  ],
+  "draw_ranking": [
+    {
+      "seed": "31fcb7070e18ec8d01bfb540d1bcf8130d2ff4bf06c9133ac1a24c26092b9469",
+      "size": 5,
+      "winners": 1,
+      "won": [
+        1
+      ],
+      "waitlist": [
+        3,
+        2,
+        4,
+        0
+      ]
     },
     {
-      "pool_root": "6f6fc391bef75df38f2698397ea18585dd0e5af0e3f1835493cc00eaf598ad56",
-      "pool_size": 64,
-      "randomness": "52f83e5a3a4de4f86754ef25ce771b22ba59963eb18ac1d6a03bc9d9f1478334",
-      "session_id": "",
-      "index": 35
+      "seed": "c2fd0c928de9fa32059b3c917eaf78a09deb0f62b6e121752bcef53f4d2b2685",
+      "size": 10,
+      "winners": 3,
+      "won": [
+        3,
+        6,
+        2
+      ],
+      "waitlist": [
+        1,
+        5,
+        9,
+        8,
+        4,
+        7,
+        0
+      ]
+    },
+    {
+      "seed": "6a1a7855fa8a036847a5d8c5c0c02c576871db1315e1c9a6c0e0f1c0ea6e8f86",
+      "size": 17,
+      "winners": 5,
+      "won": [
+        7,
+        1,
+        4,
+        14,
+        0
+      ],
+      "waitlist": [
+        12,
+        6,
+        11,
+        3,
+        8,
+        10,
+        15,
+        5
+      ]
+    },
+    {
+      "seed": "d6d91aa11024637f69b8b18103e78cdd30661bca3525be1624408a1d94e46fdb",
+      "size": 64,
+      "winners": 2,
+      "won": [
+        27,
+        0
+      ],
+      "waitlist": [
+        31,
+        17,
+        1,
+        34,
+        58,
+        41,
+        14,
+        16
+      ]
+    }
+  ],
+  "log_chain": [
+    {
+      "log_id": "vc/testvec/log",
+      "seq": 0,
+      "kind": "genesis",
+      "draw_id": "",
+      "payload": "",
+      "logged_at": 0,
+      "prev": "",
+      "head": "ccfbfe2b5d336eb9e60ebed6aa662cfc5a05bbcca7590ecc4992a232607af543"
+    },
+    {
+      "log_id": "vc/testvec/log",
+      "seq": 0,
+      "kind": "draw_created",
+      "draw_id": "draw-fixed",
+      "payload": "87b6fd8d2d25b32e8a7c170733f7392f41e7827dedaf96d1c058829694fa81d7",
+      "logged_at": 1700000000,
+      "prev": "ccfbfe2b5d336eb9e60ebed6aa662cfc5a05bbcca7590ecc4992a232607af543",
+      "head": "6d6fda9081229505737b505e0dfe506cefd640d92df44f1f56d7c110bfe75aa4"
+    },
+    {
+      "log_id": "vc/testvec/log",
+      "seq": 1,
+      "kind": "roster_committed",
+      "draw_id": "draw-fixed",
+      "payload": "1df173bc9d5acac6e515ea346e5dc5fa0279f4a05b06c87ac7018b8097365acf",
+      "logged_at": 1700000001,
+      "prev": "6d6fda9081229505737b505e0dfe506cefd640d92df44f1f56d7c110bfe75aa4",
+      "head": "3a2b8c13e2e7d54929d5cbd548ea9b6baadb6f29a1cb615d51be8e0ff1fa0c43"
+    },
+    {
+      "log_id": "vc/testvec/log",
+      "seq": 2,
+      "kind": "result_published",
+      "draw_id": "draw-fixed",
+      "payload": "91bee87407b4c8693b1142d89afbc3bb32a78978b766f5322bab2a85669d215d",
+      "logged_at": 1700000002,
+      "prev": "3a2b8c13e2e7d54929d5cbd548ea9b6baadb6f29a1cb615d51be8e0ff1fa0c43",
+      "head": "3233ff10fe2c842fe8acd30597746062cdf3369761087db3c919255ca731a125"
     }
   ],
   "beacon": {

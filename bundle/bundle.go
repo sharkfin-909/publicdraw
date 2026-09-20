@@ -1,8 +1,9 @@
-// Package bundle defines the verification artifact and checks it.
+// Package bundle defines the published proof of a draw and checks it.
 //
-// A bundle is everything a third party needs to confirm that a challenge was
-// fixed in advance, selected unpredictably, and not steered — using only
-// public data and no contact with the operator.
+// A bundle is everything a third party needs to confirm that the entry list
+// was frozen before the randomness existed, that the randomness was not
+// chosen, and that the winners follow from the two — using only public data
+// and no contact with the organiser.
 package bundle
 
 import (
@@ -11,48 +12,70 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/sharkfin009/verifiable-challenge/beacon"
+	"github.com/sharkfin009/verifiable-challenge/draw"
 	"github.com/sharkfin009/verifiable-challenge/hashing"
 	"github.com/sharkfin009/verifiable-challenge/merkle"
-	"github.com/sharkfin009/verifiable-challenge/pool"
-	"github.com/sharkfin009/verifiable-challenge/session"
+	"github.com/sharkfin009/verifiable-challenge/roster"
+	"github.com/sharkfin009/verifiable-challenge/translog"
 )
 
-// Bundle is the published proof for one challenge selection.
+// Bundle is the published proof for one draw.
 type Bundle struct {
-	Version int          `json:"version"`
-	Pool    PoolRef      `json:"pool"`
-	Session SessionRef   `json:"session"`
-	Beacon  beacon.Round `json:"beacon"`
-	Reveal  Reveal       `json:"reveal"`
+	Version  int          `json:"version"`
+	Operator string       `json:"operator_pubkey"`
+	Draw     DrawRef      `json:"draw"`
+	Roster   RosterRef    `json:"roster"`
+	Beacon   beacon.Round `json:"beacon"`
+	Result   Result       `json:"result"`
+	Log      LogRef       `json:"log"`
 }
 
-// PoolRef is the public description of the pool the challenge came from.
-type PoolRef struct {
-	Root   hashing.Digest `json:"root"`
-	Size   int            `json:"size"`
-	Commit hashing.Digest `json:"commit"`
-	// OTSProof is a base64 OpenTimestamps proof over Commit. It is what
-	// establishes that the pool predates the beacon round; without it the
-	// bundle proves the selection was fair only if you already trust that the
-	// pool was not built to order.
+// DrawRef carries the parameters committed at creation.
+type DrawRef struct {
+	Params    draw.Params `json:"params"`
+	Signature string      `json:"signature"`
+}
+
+// RosterRef carries the entry list commitment made at cutoff.
+//
+// Entries is populated only when the draw was created with public disclosure,
+// in which case a verifier rebuilds the entire tree instead of checking
+// per-winner proofs. Under private disclosure it is empty and every entrant
+// checks their own inclusion with a receipt.
+type RosterRef struct {
+	Commitment draw.RosterCommitment `json:"commitment"`
+	Signature  string                `json:"signature"`
+	Entries    []roster.Sealed       `json:"entries,omitempty"`
+	// OTSProof is a base64 OpenTimestamps proof over the log head. It is what
+	// establishes that the commitments predate the beacon round to someone who
+	// does not trust the operator's clock.
 	OTSProof string `json:"ots_proof,omitempty"`
 }
 
-// SessionRef carries the operator's pre-beacon commitment and its signature.
-type SessionRef struct {
-	Commitment session.Commitment `json:"commitment"`
-	OperatorPK string             `json:"operator_pubkey"`
-	Signature  string             `json:"signature"`
-}
-
-// Reveal opens one leaf of the committed pool.
-type Reveal struct {
+// Winner is one selected entry, in rank order.
+type Winner struct {
+	Rank       int              `json:"rank"`
 	Index      int              `json:"index"`
 	Salt       string           `json:"salt"`
-	Challenge  pool.Challenge   `json:"challenge"`
+	Entry      roster.Entry     `json:"entry"`
 	MerklePath []hashing.Digest `json:"merkle_path"`
+}
+
+// Result is the derived outcome.
+type Result struct {
+	Seed     hashing.Digest `json:"seed"`
+	Winners  []Winner       `json:"winners"`
+	Waitlist []int          `json:"waitlist"`
+}
+
+// LogRef carries this draw's transparency-log records.
+type LogRef struct {
+	LogID   string            `json:"log_id"`
+	Records []translog.Record `json:"records"`
+	Head    hashing.Digest    `json:"head"`
 }
 
 // Check is the outcome of one verification step.
@@ -63,9 +86,8 @@ type Check struct {
 	Detail  string `json:"detail"`
 }
 
-// Report is the full verification outcome. OK is true only if every check
-// that ran passed; skipped checks are reported separately and never silently
-// counted as passes.
+// Report is the full verification outcome. Skipped checks are reported
+// separately and are never silently counted as passes.
 type Report struct {
 	OK      bool    `json:"ok"`
 	Checks  []Check `json:"checks"`
@@ -76,92 +98,144 @@ func (r *Report) add(name string, ok bool, format string, args ...any) {
 	r.Checks = append(r.Checks, Check{Name: name, OK: ok, Detail: fmt.Sprintf(format, args...)})
 }
 
-func (r *Report) skip(name string, format string, args ...any) {
-	r.Checks = append(r.Checks, Check{Name: name, OK: false, Skipped: true, Detail: fmt.Sprintf(format, args...)})
+func (r *Report) skip(name, format string, args ...any) {
+	r.Checks = append(r.Checks, Check{Name: name, Skipped: true, Detail: fmt.Sprintf(format, args...)})
 	r.Skipped++
 }
 
 // Verify runs every check and returns a report. It never short-circuits: a
-// failing bundle should show which specific property broke.
+// failing bundle should show which specific property broke, not just the first.
 func Verify(b Bundle, chain beacon.Chain) Report {
 	var rep Report
-	com := b.Session.Commitment
+	p := b.Draw.Params
+	rc := b.Roster.Commitment
 
-	// 1. The pool commitment is internally consistent, so Root and Size are
-	//    both genuinely bound by the value that gets timestamped.
-	want := pool.CommitValue(b.Pool.Root, b.Pool.Size)
-	rep.add("pool commitment binds root and size", want == b.Pool.Commit,
-		"commit=%s", b.Pool.Commit)
+	pkb, pkErr := hex.DecodeString(b.Operator)
+	pub := ed25519.PublicKey(pkb)
 
-	// 2. The commitment the operator signed describes this pool and chain.
-	matches := com.PoolRoot == b.Pool.Root && com.PoolSize == b.Pool.Size &&
-		com.PoolCommit == b.Pool.Commit && com.ChainHash == chain.Hash
-	rep.add("signed commitment matches this pool and chain", matches,
-		"chain=%s size=%d", com.ChainHash, com.PoolSize)
+	// --- what the organiser committed to, and when ------------------------
 
-	// 3. The operator's signature over that commitment verifies.
-	pkb, err := hex.DecodeString(b.Session.OperatorPK)
-	sigb, err2 := hex.DecodeString(b.Session.Signature)
-	switch {
-	case err != nil || err2 != nil:
-		rep.add("operator signature", false, "malformed hex in key or signature")
-	default:
-		e := session.VerifySignature(ed25519.PublicKey(pkb), com, sigb)
-		rep.add("operator signature over pre-beacon commitment", e == nil, "%s", detail(e, "valid"))
-	}
+	rep.add("roster commitment binds root and size",
+		roster.CommitValue(rc.Root, rc.Size) == rc.Commit, "commit=%s size=%d", rc.Commit, rc.Size)
 
-	// 4. THE ANTI-GRINDING CHECK. The commitment was issued before the target
-	//    round existed, so the session ID cannot have been ground against a
-	//    known beacon value to steer the index.
-	target := chain.TimeOf(com.TargetRound)
-	issued := com.IssuedAt
-	rep.add("commitment predates its target round", issued < target.Unix(),
-		"issued=%d target_round_time=%d lead=%ds", issued, target.Unix(), target.Unix()-issued)
+	rep.add("roster commitment belongs to this draw",
+		rc.DrawID == p.DrawID, "draw=%s", p.DrawID)
 
-	// 5. The beacon round is the one named, and its BLS signature is valid
-	//    against the chain's group key.
-	if b.Beacon.Round != com.TargetRound {
-		rep.add("beacon round is the committed target", false,
-			"bundle has round %d, commitment named %d", b.Beacon.Round, com.TargetRound)
+	rep.add("draw parameters name this chain",
+		p.ChainHash == chain.Hash, "chain=%s", p.ChainHash)
+
+	if pkErr != nil {
+		rep.add("operator signature over draw parameters", false, "malformed operator key")
+		rep.add("operator signature over roster commitment", false, "malformed operator key")
 	} else {
-		rep.add("beacon round is the committed target", true, "round=%d", b.Beacon.Round)
+		sig, err := hex.DecodeString(b.Draw.Signature)
+		e := err
+		if e == nil {
+			e = draw.VerifyParamsSignature(pub, p, sig)
+		}
+		rep.add("operator signature over draw parameters", e == nil, "%s", detail(e, "valid"))
+
+		rsig, err := hex.DecodeString(b.Roster.Signature)
+		e = err
+		if e == nil {
+			e = draw.VerifyRosterSignature(pub, rc, rsig)
+		}
+		rep.add("operator signature over roster commitment", e == nil, "%s", detail(e, "valid"))
 	}
+
+	// --- ordering: the part that makes the draw unsteerable ---------------
+
+	rep.add("parameters fixed before the cutoff",
+		p.CreatedAt < p.CutoffAt, "created=%d cutoff=%d", p.CreatedAt, p.CutoffAt)
+
+	rep.add("roster frozen at or after the cutoff",
+		rc.CommittedAt >= p.CutoffAt, "committed=%d cutoff=%d", rc.CommittedAt, p.CutoffAt)
+
+	target := chain.TimeOf(p.TargetRound)
+	rep.add("roster frozen before the beacon round existed",
+		rc.CommittedAt < target.Unix(),
+		"committed=%d round_at=%d lead=%ds", rc.CommittedAt, target.Unix(), target.Unix()-rc.CommittedAt)
+
+	rep.add("target round leaves the minimum lead after cutoff",
+		target.Unix()-p.CutoffAt >= int64(draw.MinLead.Seconds()),
+		"gap=%ds min=%ds", target.Unix()-p.CutoffAt, int64(draw.MinLead.Seconds()))
+
+	// --- the randomness ---------------------------------------------------
+
+	rep.add("beacon round is the committed target",
+		b.Beacon.Round == p.TargetRound, "bundle=%d committed=%d", b.Beacon.Round, p.TargetRound)
+
 	e := chain.Verify(b.Beacon)
 	rep.add("drand signature verifies against chain public key", e == nil, "%s", detail(e, "valid"))
 
-	// 6. The index is exactly what the published inputs derive.
+	// --- the derivation ---------------------------------------------------
+
 	rnd, rerr := b.Beacon.Randomness()
 	if rerr != nil {
-		rep.add("challenge index derives from beacon", false, "%v", rerr)
+		rep.add("seed derives from roster and beacon", false, "%v", rerr)
+		rep.add("winners derive from the seed", false, "no seed")
 	} else {
-		idx, ierr := session.Index(b.Pool.Root, b.Pool.Size, rnd, com.SessionID)
-		rep.add("challenge index derives from beacon", ierr == nil && idx == b.Reveal.Index,
-			"derived=%d claimed=%d", idx, b.Reveal.Index)
+		wantSeed := draw.Seed(rc.Root, rc.Size, rnd, p.DrawID)
+		seedOK := wantSeed == b.Result.Seed
+		rep.add("seed derives from roster and beacon", seedOK, "seed=%s", b.Result.Seed)
+
+		won, wait, serr := draw.Select(b.Result.Seed, rc.Size, p.Winners)
+		switch {
+		case serr != nil:
+			rep.add("winners derive from the seed", false, "%v", serr)
+		case !sameInts(won, winnerIndices(b.Result.Winners)):
+			rep.add("winners derive from the seed", false,
+				"derived=%v published=%v", won, winnerIndices(b.Result.Winners))
+		case len(b.Result.Waitlist) > 0 && !sameInts(wait, b.Result.Waitlist):
+			rep.add("winners derive from the seed", false, "waitlist order does not match the ranking")
+		default:
+			rep.add("winners derive from the seed", true, "%d winner(s) of %d entries", len(won), rc.Size)
+		}
 	}
 
-	// 7. The revealed challenge really sits at that index in the committed tree.
-	salt, serr := hex.DecodeString(b.Reveal.Salt)
-	if serr != nil {
-		rep.add("merkle proof places challenge at that index", false, "malformed salt hex")
-	} else {
-		leaf := merkle.LeafHash(salt, b.Reveal.Challenge.CanonicalBytes())
-		ok := merkle.Verify(leaf, b.Reveal.Index, b.Pool.Size, b.Reveal.MerklePath, b.Pool.Root)
-		rep.add("merkle proof places challenge at that index", ok,
-			"leaf=%s path_len=%d", leaf, len(b.Reveal.MerklePath))
+	// --- disclosure -------------------------------------------------------
+
+	switch p.Disclosure {
+	case roster.Public:
+		if len(b.Roster.Entries) != rc.Size {
+			rep.add("published roster rebuilds to the committed root", false,
+				"bundle carries %d entries, commitment says %d", len(b.Roster.Entries), rc.Size)
+		} else {
+			got, err := roster.Rebuild(b.Roster.Entries)
+			rep.add("published roster rebuilds to the committed root",
+				err == nil && got == rc.Root, "%s", detail(err, "root matches"))
+		}
+	case roster.Private:
+		rep.add("private disclosure withholds the entry list",
+			len(b.Roster.Entries) == 0, "%d entries published", len(b.Roster.Entries))
+	default:
+		rep.add("disclosure mode is recognised", false, "unknown mode %q", p.Disclosure)
 	}
 
-	// 8. Timestamping. Not verified here — an OpenTimestamps proof needs a
-	//    Bitcoin header source. Reported as skipped rather than passed,
-	//    because a verifier that silently omits a check is worse than one that
-	//    admits it: without this step the bundle does not rule out a pool
-	//    constructed after the fact.
-	if b.Pool.OTSProof == "" {
-		rep.skip("pool commitment timestamped before target round",
-			"no OTS proof in bundle; pool could have been built to order")
+	rep.add("each winner is proven to be in the committed roster",
+		winnersProven(b, rc), "%d proof(s)", len(b.Result.Winners))
+
+	// --- transparency log -------------------------------------------------
+
+	head, lerr := translog.Verify(b.Log.Records, b.Log.LogID)
+	rep.add("log records form an unbroken chain", lerr == nil, "%s", detail(lerr, "chain intact"))
+
+	rep.add("log contains this draw's creation, cutoff and result",
+		logCovers(b.Log.Records, p, rc, head, b.Log.Head),
+		"%d record(s)", len(b.Log.Records))
+
+	// --- what is not checked here -----------------------------------------
+
+	if b.Roster.OTSProof == "" {
+		rep.skip("log head timestamped before the beacon round",
+			"no OTS proof in bundle; the operator's clock is taken on trust")
 	} else {
-		rep.skip("pool commitment timestamped before target round",
-			"OTS proof present (%d bytes) — verify with: ots verify", len(b.Pool.OTSProof))
+		rep.skip("log head timestamped before the beacon round",
+			"OTS proof present (%d bytes) — verify separately with: ots verify", len(b.Roster.OTSProof))
 	}
+
+	rep.skip("this draw was not abandoned and retried",
+		"answerable only against the full public log, not from one bundle")
 
 	rep.OK = true
 	for _, c := range rep.Checks {
@@ -170,6 +244,66 @@ func Verify(b Bundle, chain beacon.Chain) Report {
 		}
 	}
 	return rep
+}
+
+func winnersProven(b Bundle, rc draw.RosterCommitment) bool {
+	if len(b.Result.Winners) == 0 {
+		return false
+	}
+	for _, w := range b.Result.Winners {
+		salt, err := hex.DecodeString(w.Salt)
+		if err != nil {
+			return false
+		}
+		leaf := merkle.LeafHash(salt, w.Entry.CanonicalBytes())
+		if !merkle.Verify(leaf, w.Index, rc.Size, w.MerklePath, rc.Root) {
+			return false
+		}
+	}
+	return true
+}
+
+func logCovers(records []translog.Record, p draw.Params, rc draw.RosterCommitment, replayed, claimed hashing.Digest) bool {
+	if replayed != claimed {
+		return false
+	}
+	var created, committed, published bool
+	for _, r := range records {
+		if r.DrawID != p.DrawID {
+			continue
+		}
+		switch r.Kind {
+		case translog.KindDrawCreated:
+			created = r.Payload == p.Commit()
+		case translog.KindRosterCommitted:
+			var want hashing.Digest
+			copy(want[:], rc.SigningBytes())
+			committed = r.Payload == want
+		case translog.KindResultPublished:
+			published = true
+		}
+	}
+	return created && committed && published
+}
+
+func winnerIndices(ws []Winner) []int {
+	out := make([]int, len(ws))
+	for i, w := range ws {
+		out[i] = w.Index
+	}
+	return out
+}
+
+func sameInts(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func detail(err error, okMsg string) string {
@@ -186,4 +320,18 @@ func Read(r io.Reader) (Bundle, error) {
 		return b, fmt.Errorf("bundle: decode: %w", err)
 	}
 	return b, nil
+}
+
+// Timeline renders the ordering a bundle asserts, for humans.
+func Timeline(b Bundle, chain beacon.Chain) string {
+	p := b.Draw.Params
+	at := func(u int64) string { return time.Unix(u, 0).UTC().Format("2006-01-02 15:04:05Z") }
+	return fmt.Sprintf(
+		"  created   %s  parameters fixed, nobody has entered yet\n"+
+			"  cutoff    %s  entries close\n"+
+			"  frozen    %s  roster committed and signed\n"+
+			"  round %d  %s  drand publishes — %ds after the roster was frozen\n",
+		at(p.CreatedAt), at(p.CutoffAt), at(b.Roster.Commitment.CommittedAt),
+		p.TargetRound, at(chain.TimeOf(p.TargetRound).Unix()),
+		chain.TimeOf(p.TargetRound).Unix()-b.Roster.Commitment.CommittedAt)
 }

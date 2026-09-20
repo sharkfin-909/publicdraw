@@ -1,63 +1,106 @@
-// Command vc builds committed challenge pools, runs the two-phase selection,
-// and verifies the resulting bundles.
+// Command vc runs and verifies public draws.
 //
-// It deliberately has no CLI framework dependency: the verifier is meant to be
-// a small static binary someone can audit and run without trusting anything
-// about where it came from.
+// It has no CLI framework dependency on purpose: the verifier is meant to be a
+// small static binary someone can audit and run without trusting where it came
+// from.
 package main
 
 import (
+	"bufio"
 	"context"
 	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/sharkfin009/verifiable-challenge/beacon"
 	"github.com/sharkfin009/verifiable-challenge/bundle"
-	"github.com/sharkfin009/verifiable-challenge/pool"
-	"github.com/sharkfin009/verifiable-challenge/session"
+	"github.com/sharkfin009/verifiable-challenge/httpapi"
+	"github.com/sharkfin009/verifiable-challenge/roster"
+	"github.com/sharkfin009/verifiable-challenge/service"
+	"github.com/sharkfin009/verifiable-challenge/translog"
 )
 
-const usage = `vc — verifiable challenge selection
+const usage = `vc — publicly verifiable draws
 
-  vc keygen  -out FILE                       generate an operator signing key
-  vc commit  -in FILE -pool FILE -out FILE   commit a challenge pool
-  vc begin   -commit FILE -key FILE -out FILE [-lead N]
-                                             issue a pre-beacon session commitment
-  vc reveal  -session FILE -pool FILE -out FILE [-wait]
-                                             open the challenge once the round publishes
-  vc verify  FILE                            verify a bundle  [-json]
-  vc beacon  [ROUND]                         fetch and verify a drand round
+organiser:
+  vc keygen  [-out FILE]
+  vc create  -title T [-winners N] [-disclosure public|private] -open 10m
+  vc enter   -draw ID (-label L | -file FILE)
+  vc commit  -draw ID
+  vc run     -draw ID [-wait]
+  vc receipt -draw ID -index N [-out FILE]
+  vc serve   [-addr :8080]
+
+anyone:
+  vc verify  BUNDLE [-json] [-timeline]
+  vc check-receipt RECEIPT
+  vc log     [-abandoned]
+  vc beacon  [ROUND]
+
+global:
+  -dir DIR   service directory (default ./vcdata)
+  -key FILE  operator key (default DIR/operator.key.json)
 `
 
+var (
+	dirFlag = flag.String("dir", "vcdata", "service directory")
+	keyFlag = flag.String("key", "", "operator key file")
+)
+
 func main() {
-	if len(os.Args) < 2 {
+	// Global flags are accepted before the subcommand as well as after it,
+	// because the help advertises them as global and flag.Parse stops at the
+	// first non-flag argument, which is the subcommand.
+	global := flag.NewFlagSet("vc", flag.ContinueOnError)
+	global.SetOutput(io.Discard)
+	global.StringVar(dirFlag, "dir", *dirFlag, "service directory")
+	global.StringVar(keyFlag, "key", *keyFlag, "operator key file")
+	_ = global.Parse(os.Args[1:])
+
+	args := global.Args()
+	if len(args) == 0 {
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
 	}
+	cmd := args[0]
+	rest := args[1:]
+
 	var err error
-	switch os.Args[1] {
+	switch cmd {
 	case "keygen":
-		err = cmdKeygen(os.Args[2:])
+		err = cmdKeygen(rest)
+	case "create":
+		err = cmdCreate(rest)
+	case "enter":
+		err = cmdEnter(rest)
 	case "commit":
-		err = cmdCommit(os.Args[2:])
-	case "begin":
-		err = cmdBegin(os.Args[2:])
-	case "reveal":
-		err = cmdReveal(os.Args[2:])
+		err = cmdCommit(rest)
+	case "run":
+		err = cmdRun(rest)
+	case "receipt":
+		err = cmdReceipt(rest)
+	case "serve":
+		err = cmdServe(rest)
 	case "verify":
-		err = cmdVerify(os.Args[2:])
+		err = cmdVerify(rest)
+	case "check-receipt":
+		err = cmdCheckReceipt(rest)
+	case "log":
+		err = cmdLog(rest)
 	case "beacon":
-		err = cmdBeacon(os.Args[2:])
+		err = cmdBeacon(rest)
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 		return
 	default:
-		fmt.Fprintf(os.Stderr, "vc: unknown command %q\n\n%s", os.Args[1], usage)
+		fmt.Fprintf(os.Stderr, "vc: unknown command %q\n\n%s", cmd, usage)
 		os.Exit(2)
 	}
 	if err != nil {
@@ -71,177 +114,254 @@ type keyFile struct {
 	PrivateKey string `json:"private_key"`
 }
 
-func cmdKeygen(args []string) error {
-	fs := flag.NewFlagSet("keygen", flag.ExitOnError)
-	out := fs.String("out", "operator.key.json", "where to write the keypair")
-	fs.Parse(args)
+func keyPath() string {
+	if *keyFlag != "" {
+		return *keyFlag
+	}
+	return *dirFlag + "/operator.key.json"
+}
 
-	pub, priv, err := session.GenerateKey()
+func openService() (*service.Service, error) {
+	var kf keyFile
+	if err := readJSON(keyPath(), &kf); err != nil {
+		return nil, fmt.Errorf("%w (run: vc keygen)", err)
+	}
+	priv, err := hex.DecodeString(kf.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	return service.New(*dirFlag, "vc/log/"+kf.PublicKey[:16], ed25519.PrivateKey(priv))
+}
+
+func cmdKeygen(args []string) error {
+	fs := newFlags("keygen", args)
+	out := fs.String("out", "", "where to write the keypair")
+	parse(fs, args)
+
+	pub, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return err
 	}
-	if err := writeJSON(*out, keyFile{hex.EncodeToString(pub), hex.EncodeToString(priv)}, 0o600); err != nil {
+	if err := os.MkdirAll(*dirFlag, 0o755); err != nil {
+		return err
+	}
+	path := *out
+	if path == "" {
+		path = keyPath()
+	}
+	if err := writeJSON(path, keyFile{hex.EncodeToString(pub), hex.EncodeToString(priv)}, 0o600); err != nil {
 		return err
 	}
 	fmt.Printf("operator public key  %s\n", hex.EncodeToString(pub))
-	fmt.Printf("written to           %s (mode 0600 — this file signs commitments)\n", *out)
+	fmt.Printf("written to           %s (mode 0600)\n", path)
+	return nil
+}
+
+func cmdCreate(args []string) error {
+	fs := newFlags("create", args)
+	title := fs.String("title", "", "what this draw is for")
+	winners := fs.Int("winners", 1, "how many entries to select")
+	disc := fs.String("disclosure", "private", "public (publish every entry) or private (winners only)")
+	open := fs.Duration("open", 0, "how long entries stay open")
+	cutoff := fs.Int64("cutoff", 0, "cutoff as a unix timestamp")
+	parse(fs, args)
+
+	if *title == "" {
+		return fmt.Errorf("create: -title is required")
+	}
+	when := time.Unix(*cutoff, 0)
+	if *cutoff == 0 {
+		if *open == 0 {
+			return fmt.Errorf("create: pass -open DURATION or -cutoff UNIXTIME")
+		}
+		when = time.Now().Add(*open)
+	}
+	svc, err := openService()
+	if err != nil {
+		return err
+	}
+	st, err := svc.Create(*title, *winners, roster.Disclosure(*disc), when)
+	if err != nil {
+		return err
+	}
+	chain := svc.Chain()
+	fmt.Printf("draw         %s\n", st.Params.DrawID)
+	fmt.Printf("title        %s\n", st.Params.Title)
+	fmt.Printf("winners      %d\n", st.Params.Winners)
+	fmt.Printf("disclosure   %s\n", st.Params.Disclosure)
+	fmt.Printf("entries close %s\n", time.Unix(st.Params.CutoffAt, 0).Format(time.RFC3339))
+	fmt.Printf("target round %d at %s\n", st.Params.TargetRound, chain.TimeOf(st.Params.TargetRound).Format(time.RFC3339))
+	fmt.Printf("\nPublish this draw id now. The parameters are logged and signed;\n")
+	fmt.Printf("changing any of them later produces a different draw.\n")
+	return nil
+}
+
+func cmdEnter(args []string) error {
+	fs := newFlags("enter", args)
+	id := fs.String("draw", "", "draw id")
+	label := fs.String("label", "", "a single entry")
+	file := fs.String("file", "", "file of entries, one per line")
+	parse(fs, args)
+
+	var labels []string
+	if *label != "" {
+		labels = append(labels, *label)
+	}
+	if *file != "" {
+		f, err := os.Open(*file)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		sc := bufio.NewScanner(f)
+		for sc.Scan() {
+			if l := strings.TrimSpace(sc.Text()); l != "" {
+				labels = append(labels, l)
+			}
+		}
+		if err := sc.Err(); err != nil {
+			return err
+		}
+	}
+	if len(labels) == 0 {
+		return fmt.Errorf("enter: pass -label or -file")
+	}
+	svc, err := openService()
+	if err != nil {
+		return err
+	}
+	n, err := svc.Enter(*id, labels...)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("added %d, %d total\n", len(labels), n)
 	return nil
 }
 
 func cmdCommit(args []string) error {
-	fs := flag.NewFlagSet("commit", flag.ExitOnError)
-	in := fs.String("in", "", "JSON array of challenges")
-	poolOut := fs.String("pool", "pool.secret.json", "salted pool (secret)")
-	out := fs.String("out", "commitment.json", "public commitment")
-	fs.Parse(args)
-	if *in == "" {
-		return fmt.Errorf("commit: -in is required")
-	}
+	fs := newFlags("commit", args)
+	id := fs.String("draw", "", "draw id")
+	parse(fs, args)
 
-	var challenges []pool.Challenge
-	if err := readJSON(*in, &challenges); err != nil {
-		return err
-	}
-	p, err := pool.New(challenges)
+	svc, err := openService()
 	if err != nil {
 		return err
 	}
-	if err := writeJSON(*poolOut, p, 0o600); err != nil {
+	st, err := svc.CommitRoster(*id)
+	if err != nil {
 		return err
 	}
-	c := p.Commitment()
-	if err := writeJSON(*out, c, 0o644); err != nil {
-		return err
-	}
-	fmt.Printf("challenges  %d\n", c.Size)
-	fmt.Printf("root        %s\n", c.Root)
-	fmt.Printf("commit      %s\n", c.Commit)
-	fmt.Printf("\nTimestamp the commit value now, before any session runs:\n")
-	fmt.Printf("  echo -n %s | xxd -r -p > pool.commit && ots stamp pool.commit\n", c.Commit)
+	chain := svc.Chain()
+	target := chain.TimeOf(st.Params.TargetRound)
+	fmt.Printf("entries    %d\n", st.RosterCommit.Size)
+	fmt.Printf("root       %s\n", st.RosterCommit.Root)
+	fmt.Printf("commit     %s\n", st.RosterCommit.Commit)
+	fmt.Printf("log head   %s\n", svc.Log().Head())
+	fmt.Printf("draws at   round %d, in %s\n", st.Params.TargetRound, time.Until(target).Truncate(time.Second))
+	fmt.Printf("\nThe entry list is now frozen and the randomness does not exist yet.\n")
+	fmt.Printf("Timestamp the log head to prove that to someone who distrusts your clock:\n")
+	fmt.Printf("  echo -n %s | xxd -r -p > log.head && ots stamp log.head\n", svc.Log().Head())
 	return nil
 }
 
-type sessionFile struct {
-	Commitment session.Commitment `json:"commitment"`
-	OperatorPK string             `json:"operator_pubkey"`
-	Signature  string             `json:"signature"`
-}
+func cmdRun(args []string) error {
+	fs := newFlags("run", args)
+	id := fs.String("draw", "", "draw id")
+	out := fs.String("out", "", "write the bundle here (default DIR/bundle-ID.json)")
+	wait := fs.Bool("wait", true, "wait for the target round")
+	parse(fs, args)
 
-func cmdBegin(args []string) error {
-	fs := flag.NewFlagSet("begin", flag.ExitOnError)
-	commit := fs.String("commit", "commitment.json", "public pool commitment")
-	key := fs.String("key", "operator.key.json", "operator signing key")
-	out := fs.String("out", "session.json", "signed session commitment")
-	lead := fs.Uint64("lead", session.DefaultLead, "rounds ahead to target")
-	fs.Parse(args)
-
-	var c pool.Commitment
-	if err := readJSON(*commit, &c); err != nil {
-		return err
-	}
-	var kf keyFile
-	if err := readJSON(*key, &kf); err != nil {
-		return err
-	}
-	privb, err := hex.DecodeString(kf.PrivateKey)
-	if err != nil {
-		return fmt.Errorf("begin: private key hex: %w", err)
-	}
-
-	chain := beacon.Quicknet
-	now := time.Now()
-	com, sig, err := session.Begin(chain, c, ed25519.PrivateKey(privb), *lead, now)
+	svc, err := openService()
 	if err != nil {
 		return err
 	}
-	if err := writeJSON(*out, sessionFile{com, kf.PublicKey, hex.EncodeToString(sig)}, 0o644); err != nil {
-		return err
-	}
-	target := chain.TimeOf(com.TargetRound)
-	fmt.Printf("session       %s\n", com.SessionID)
-	fmt.Printf("target round  %d\n", com.TargetRound)
-	fmt.Printf("publishes at  %s (in %s)\n", target.Format(time.RFC3339), time.Until(target).Truncate(time.Second))
-	fmt.Printf("\nThe challenge is now fixed but unknowable — by the candidate and by you.\n")
-	return nil
-}
-
-func cmdReveal(args []string) error {
-	fs := flag.NewFlagSet("reveal", flag.ExitOnError)
-	sessF := fs.String("session", "session.json", "signed session commitment")
-	poolF := fs.String("pool", "pool.secret.json", "salted pool")
-	out := fs.String("out", "bundle.json", "verification bundle")
-	wait := fs.Bool("wait", true, "wait for the target round to publish")
-	fs.Parse(args)
-
-	var sf sessionFile
-	if err := readJSON(*sessF, &sf); err != nil {
-		return err
-	}
-	var p pool.Pool
-	if err := readJSON(*poolF, &p); err != nil {
-		return err
-	}
-	loaded, err := pool.Load(p.Entries)
+	st, err := svc.Get(*id)
 	if err != nil {
 		return err
 	}
-
-	chain := beacon.Quicknet
-	target := chain.TimeOf(sf.Commitment.TargetRound)
+	target := svc.Chain().TimeOf(st.Params.TargetRound)
 	if d := time.Until(target); d > 0 {
 		if !*wait {
-			return fmt.Errorf("reveal: round %d does not publish for another %s", sf.Commitment.TargetRound, d.Truncate(time.Second))
+			return fmt.Errorf("run: round %d publishes in %s", st.Params.TargetRound, d.Truncate(time.Second))
 		}
-		fmt.Printf("waiting %s for round %d...\n", d.Truncate(time.Second), sf.Commitment.TargetRound)
+		fmt.Printf("waiting %s for round %d...\n", d.Truncate(time.Second), st.Params.TargetRound)
 		time.Sleep(d + 2*time.Second)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	r, err := chain.Fetch(ctx, sf.Commitment.TargetRound)
+	b, err := svc.Run(ctx, *id)
 	if err != nil {
 		return err
 	}
-	rnd, err := r.Randomness()
-	if err != nil {
+	path := *out
+	if path == "" {
+		path = fmt.Sprintf("%s/bundle-%s.json", *dirFlag, *id)
+	}
+	if err := writeJSON(path, b, 0o644); err != nil {
 		return err
 	}
-	idx, err := session.Index(sf.Commitment.PoolRoot, sf.Commitment.PoolSize, rnd, sf.Commitment.SessionID)
-	if err != nil {
-		return err
+	fmt.Printf("round      %d\n", b.Beacon.Round)
+	fmt.Printf("seed       %s\n", b.Result.Seed)
+	for _, w := range b.Result.Winners {
+		fmt.Printf("winner %-2d  #%d  %s\n", w.Rank, w.Index, w.Entry.Label)
 	}
-	entry, path, err := loaded.Open(idx)
-	if err != nil {
-		return err
+	if n := len(b.Result.Waitlist); n > 0 {
+		fmt.Printf("waitlist   %d more, in order\n", n)
 	}
-
-	b := bundle.Bundle{
-		Version: 1,
-		Pool:    bundle.PoolRef{Root: sf.Commitment.PoolRoot, Size: sf.Commitment.PoolSize, Commit: sf.Commitment.PoolCommit},
-		Session: bundle.SessionRef{Commitment: sf.Commitment, OperatorPK: sf.OperatorPK, Signature: sf.Signature},
-		Beacon:  r,
-		Reveal: bundle.Reveal{
-			Index:      idx,
-			Salt:       hex.EncodeToString(entry.Salt),
-			Challenge:  entry.Challenge,
-			MerklePath: path,
-		},
-	}
-	if err := writeJSON(*out, b, 0o644); err != nil {
-		return err
-	}
-	fmt.Printf("round      %d\n", r.Round)
-	fmt.Printf("randomness %s\n", rnd)
-	fmt.Printf("index      %d of %d\n", idx, sf.Commitment.PoolSize)
-	fmt.Printf("challenge  %s — %s\n", entry.Challenge.ID, entry.Challenge.Title)
-	fmt.Printf("bundle     %s\n", *out)
+	fmt.Printf("bundle     %s\n", path)
 	return nil
 }
 
+func cmdReceipt(args []string) error {
+	fs := newFlags("receipt", args)
+	id := fs.String("draw", "", "draw id")
+	index := fs.Int("index", -1, "entry index")
+	out := fs.String("out", "", "write the receipt here")
+	parse(fs, args)
+
+	svc, err := openService()
+	if err != nil {
+		return err
+	}
+	rec, err := svc.Receipt(*id, *index)
+	if err != nil {
+		return err
+	}
+	if *out != "" {
+		if err := writeJSON(*out, rec, 0o644); err != nil {
+			return err
+		}
+	}
+	fmt.Printf("entry %d of %d — %s\n", rec.Index, rec.Size, rec.Entry.Label)
+	fmt.Printf("root  %s\n", rec.Root)
+	if *out != "" {
+		fmt.Printf("saved %s\n", *out)
+	}
+	return nil
+}
+
+func cmdServe(args []string) error {
+	fs := newFlags("serve", args)
+	addr := fs.String("addr", ":8080", "listen address")
+	parse(fs, args)
+
+	svc, err := openService()
+	if err != nil {
+		return err
+	}
+	srv := httpapi.New(svc)
+	fmt.Printf("operator  %s\n", svc.OperatorKey())
+	fmt.Printf("log head  %s\n", svc.Log().Head())
+	fmt.Printf("listening on %s\n", *addr)
+	return http.ListenAndServe(*addr, srv)
+}
+
 func cmdVerify(args []string) error {
-	fs := flag.NewFlagSet("verify", flag.ExitOnError)
+	fs := newFlags("verify", args)
 	asJSON := fs.Bool("json", false, "emit the report as JSON")
-	fs.Parse(args)
+	timeline := fs.Bool("timeline", false, "also show the asserted ordering")
+	parse(fs, args)
 	if fs.NArg() != 1 {
 		return fmt.Errorf("verify: expected exactly one bundle file")
 	}
@@ -263,36 +383,107 @@ func cmdVerify(args []string) error {
 		if err := enc.Encode(rep); err != nil {
 			return err
 		}
-	} else {
-		for _, c := range rep.Checks {
-			mark := "FAIL"
-			switch {
-			case c.Skipped:
-				mark = "SKIP"
-			case c.OK:
-				mark = "ok  "
-			}
-			fmt.Printf("  %s  %-48s  %s\n", mark, c.Name, c.Detail)
+		if !rep.OK {
+			os.Exit(1)
 		}
-		fmt.Println()
-		if rep.OK {
-			fmt.Printf("VERIFIED — challenge %q was fixed in advance and selected unpredictably\n", b.Reveal.Challenge.ID)
-			if rep.Skipped > 0 {
-				fmt.Printf("%d check(s) skipped; see SKIP lines above\n", rep.Skipped)
-			}
-		} else {
-			fmt.Println("FAILED — this bundle does not prove what it claims")
-		}
+		return nil
 	}
+
+	if *timeline {
+		fmt.Printf("\n%s\n", bundle.Timeline(b, beacon.Quicknet))
+	}
+	for _, c := range rep.Checks {
+		mark := "FAIL"
+		switch {
+		case c.Skipped:
+			mark = "SKIP"
+		case c.OK:
+			mark = "ok  "
+		}
+		fmt.Printf("  %s  %-52s  %s\n", mark, c.Name, c.Detail)
+	}
+	fmt.Println()
 	if !rep.OK {
+		fmt.Println("FAILED — this bundle does not prove what it claims")
 		os.Exit(1)
+	}
+	fmt.Printf("VERIFIED — %q, %d winner(s) of %d entries\n",
+		b.Draw.Params.Title, len(b.Result.Winners), b.Roster.Commitment.Size)
+	for _, w := range b.Result.Winners {
+		fmt.Printf("  %d. #%d  %s\n", w.Rank, w.Index, w.Entry.Label)
+	}
+	if rep.Skipped > 0 {
+		fmt.Printf("\n%d check(s) skipped — see SKIP lines above\n", rep.Skipped)
 	}
 	return nil
 }
 
+func cmdCheckReceipt(args []string) error {
+	fs := newFlags("check-receipt", args)
+	parse(fs, args)
+	if fs.NArg() != 1 {
+		return fmt.Errorf("check-receipt: expected exactly one receipt file")
+	}
+	var rec roster.Receipt
+	if err := readJSON(fs.Arg(0), &rec); err != nil {
+		return err
+	}
+	salt, err := hex.DecodeString(rec.Salt)
+	if err != nil {
+		return err
+	}
+	if !roster.VerifyReceipt(rec, salt) {
+		fmt.Printf("FAILED — %q is not entry %d of the roster rooted at %s\n", rec.Entry.Label, rec.Index, rec.Root)
+		os.Exit(1)
+	}
+	fmt.Printf("VERIFIED — %q is entry %d of %d in the roster rooted at\n  %s\n",
+		rec.Entry.Label, rec.Index, rec.Size, rec.Root)
+	fmt.Printf("\nCheck that root against the draw's published bundle to confirm it is\n")
+	fmt.Printf("the roster the winners were drawn from.\n")
+	return nil
+}
+
+func cmdLog(args []string) error {
+	fs := newFlags("log", args)
+	abandoned := fs.Bool("abandoned", false, "list draws logged at creation with no published result")
+	parse(fs, args)
+
+	svc, err := openService()
+	if err != nil {
+		return err
+	}
+	l := svc.Log()
+	if *abandoned {
+		ids, err := svc.Abandoned()
+		if err != nil {
+			return err
+		}
+		if len(ids) == 0 {
+			fmt.Println("no abandoned draws")
+			return nil
+		}
+		fmt.Printf("%d draw(s) whose round has published but whose result has not:\n", len(ids))
+		for _, id := range ids {
+			fmt.Printf("  %s\n", id)
+		}
+		fmt.Printf("\nThis is not proof of misconduct — draws get cancelled for honest\n")
+		fmt.Printf("reasons — but a retry attack can only show up here.\n")
+		return nil
+	}
+	for _, r := range l.Records() {
+		fmt.Printf("  %4d  %-17s  %s  %s\n", r.Seq, r.Kind, r.DrawID, time.Unix(r.LoggedAt, 0).Format(time.RFC3339))
+	}
+	fmt.Printf("\n%d record(s), head %s\n", l.Len(), l.Head())
+	if _, err := translog.Verify(l.Records(), "vc/log/"+svc.OperatorKey()[:16]); err != nil {
+		return err
+	}
+	fmt.Println("chain verified from genesis")
+	return nil
+}
+
 func cmdBeacon(args []string) error {
-	fs := flag.NewFlagSet("beacon", flag.ExitOnError)
-	fs.Parse(args)
+	fs := newFlags("beacon", args)
+	parse(fs, args)
 
 	var round uint64
 	if fs.NArg() == 1 {
@@ -314,9 +505,20 @@ func cmdBeacon(args []string) error {
 	fmt.Printf("round      %d\n", r.Round)
 	fmt.Printf("published  %s\n", chain.TimeOf(r.Round).Format(time.RFC3339))
 	fmt.Printf("randomness %s\n", rnd)
-	fmt.Printf("signature  verified against %s group key\n", chain.Name)
+	fmt.Printf("signature  verified against the %s group key\n", chain.Name)
 	return nil
 }
+
+// newFlags builds a flag set that also carries the global options, so -dir and
+// -key work after the subcommand name where people expect them.
+func newFlags(name string, _ []string) *flag.FlagSet {
+	fs := flag.NewFlagSet(name, flag.ExitOnError)
+	fs.StringVar(dirFlag, "dir", *dirFlag, "service directory")
+	fs.StringVar(keyFlag, "key", *keyFlag, "operator key file")
+	return fs
+}
+
+func parse(fs *flag.FlagSet, args []string) { _ = fs.Parse(args) }
 
 func readJSON(path string, v any) error {
 	b, err := os.ReadFile(path)
