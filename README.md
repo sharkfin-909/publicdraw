@@ -80,19 +80,40 @@ Waiting is not overhead. It is the proof.
 Every roster is a salted Merkle tree either way. What the organiser picks is
 how much the published bundle discloses.
 
-| | bundle contains | verified by | entrants check inclusion |
-|---|---|---|---|
-| `public` | every entry | rebuilding the whole tree | by reading the list |
-| `private` | winners only, with proofs | per-winner Merkle proofs | with a **receipt** |
+| | bundle contains | verified by |
+|---|---|---|
+| `public` | every leaf, plus every entry | rebuilding the tree from the leaves, and checking the entries hash to them |
+| `private` | every leaf, winners only disclosed | rebuilding the tree from the leaves, plus per-winner proofs |
+
+Both modes publish the **committed leaves**, in order. That is safe: a leaf is
+`H(tag ‖ salt ‖ label)` with 32 bytes of fresh randomness, so it discloses
+nothing to anyone who does not already hold that salt — and it leaks no more
+than a Merkle proof already does, since a proof reveals sibling leaves anyway.
+It makes the root independently rebuildable even for a private draw.
 
 Salts are not optional in either mode. Entry labels are low-entropy — an email
 address, a name, a ticket number — so an unsalted leaf can be brute-forced,
 and anyone holding the root could test "was alice@example.com in this draw?"
 
-A **receipt** is one entrant's Merkle proof of their own place in the committed
-roster. It lets them confirm they were included without seeing anybody else's
-entry, and it is issued at the cutoff because the root does not exist before
-then.
+## How an entrant knows they were included
+
+**Salts are issued at entry, not at the cutoff.** Whoever enters is handed
+their index and salt immediately. Once the leaves are published they hash their
+own label and look for themselves in the list — no receipt, and nothing has to
+be delivered to them.
+
+That timing carries more weight than it looks. Receipts alone are a weak
+defence against being dropped, because an entrant removed before the commit
+does not get a receipt that fails to verify — they get no receipt at all, and
+with no expectation of one they have nothing to notice. A salt held since entry
+is different.
+
+A **receipt** is still useful and still issued: it is one entrant's Merkle
+proof of their own place, self-contained, so they can verify against the root
+alone without downloading every leaf. It just is not the only path any more.
+
+Neither closes the opposite gap. A roster padded with entrants who were never
+real passes every check here.
 
 ## The transparency log
 
