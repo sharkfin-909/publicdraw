@@ -46,10 +46,16 @@ function check() {
 
     <div v-if="err" class="error">Could not read that receipt: {{ err }}</div>
 
-    <section v-if="result" class="card">
-      <h2 :style="{ color: result.ok ? 'var(--teal)' : 'var(--fault)' }">
+    <section v-if="result" class="ticket" :class="{ bad: !result.ok }">
+      <div class="ticket-head">
+        <BrandMark :size="30" tone="paper" />
+        <span class="ticket-title">{{ result.ok ? 'Keep this ticket' : 'Not in this roster' }}</span>
+      </div>
+
+      <h2 class="ticket-verdict">
         {{ result.ok ? 'Receipt verifies' : 'Receipt does not verify' }}
       </h2>
+
       <dl class="kv" style="margin-top: 12px">
         <dt>Entry</dt>
         <dd>{{ result.receipt.entry.label }}</dd>
@@ -61,7 +67,7 @@ function check() {
         <dd>{{ result.receipt.root }}</dd>
       </dl>
 
-      <p v-if="result.ok" class="notice" style="margin-top: 14px">
+      <p v-if="result.ok" class="ticket-note">
         This proves membership in the roster with that root. Now check that root matches the one on
         the draw's published result — a receipt for a different roster says nothing about this draw.
         <NuxtLink :to="`/draws/${result.receipt.draw_id}`">Open the draw →</NuxtLink>
@@ -69,3 +75,40 @@ function check() {
     </section>
   </main>
 </template>
+
+<style scoped>
+/*
+  Paper, not UI. This is the one surface an entrant holds, so it is printed
+  rather than rendered — and it keeps its colours in dark mode, because a
+  ticket does not invert.
+*/
+.ticket {
+  background: var(--paper);
+  color: var(--paper-ink);
+  border: 1px solid var(--paper-line);
+  border-radius: 3px;
+  padding: 24px 26px;
+  position: relative;
+}
+.ticket::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 64px;
+  border-top: 1px dashed var(--paper-line);
+}
+.ticket-head { display: flex; align-items: center; gap: 11px; padding-bottom: 22px; }
+.ticket-title { font-family: var(--serif); font-size: 1.12rem; font-weight: 600; }
+.ticket-verdict {
+  font-family: var(--serif); font-size: 1.3rem; margin: 22px 0 0;
+  color: var(--paper-seal);
+}
+.ticket.bad .ticket-verdict { color: #8f1d1d; }
+.ticket :deep(.kv dt) { color: var(--paper-muted); }
+.ticket :deep(.kv dd) { color: var(--paper-ink); }
+.ticket-note {
+  margin: 18px 0 0; padding: 12px 14px; border-radius: 3px;
+  background: rgba(11, 95, 95, 0.09);
+  font-size: 0.86rem; line-height: 1.55; color: var(--paper-ink);
+}
+.ticket-note a { color: var(--paper-seal); font-weight: 600; }
+</style>

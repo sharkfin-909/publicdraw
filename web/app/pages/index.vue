@@ -148,27 +148,27 @@ useHead({
   the warmth reads as a deliberate zone rather than a clash.
 */
 .hero {
-  --paper: #eae2cc;
-  --paper-ink: #2c2618;
-  --paper-muted: #6a5f47;
+  --band: #eae2cc;
+  --band-ink: #2c2618;
+  --band-muted: #6a5f47;
 
   display: grid;
   grid-template-columns: 1fr minmax(0, 0.78fr);
   gap: 36px;
   align-items: center;
-  background: var(--paper);
+  background: var(--band);
   border-radius: 4px;
   padding: 40px;
   margin-block: 4px 8px;
-  color: var(--paper-ink);
+  color: var(--band-ink);
   overflow: hidden;
 }
 .hero .eyebrow { color: #6f5320; }
-.hero h1 { color: var(--paper-ink); }
+.hero h1 { color: var(--band-ink); }
 .hero-copy { min-width: 0; }
 .lede {
   font-family: var(--serif); font-size: 1.22rem; line-height: 1.5;
-  color: var(--paper-muted); margin-bottom: 0;
+  color: var(--band-muted); margin-bottom: 0;
 }
 .hero-art { margin: 0; min-width: 0; }
 /*
@@ -177,7 +177,7 @@ useHead({
   colour rather than a CSS mask: a mask depends on mask-mode resolving to
   alpha, and when it resolves to luminance instead the black gradient erases
   the image completely — which is exactly what happened here. An overlay has
-  no such ambiguity and, because it uses var(--paper), it stays correct when
+  no such ambiguity and, because it uses var(--band), it stays correct when
   the band turns dark.
 */
 .hero-art .frame { position: relative; display: block; }
@@ -185,7 +185,7 @@ useHead({
   content: '';
   position: absolute; inset: 0;
   border-radius: 3px;
-  background: radial-gradient(115% 105% at 50% 45%, transparent 55%, var(--paper) 100%);
+  background: radial-gradient(115% 105% at 50% 45%, transparent 55%, var(--band) 100%);
   pointer-events: none;
 }
 .hero-art img {
@@ -194,22 +194,22 @@ useHead({
   border-radius: 3px;
 }
 .hero-art figcaption {
-  margin-top: 12px; font-size: 0.78rem; color: var(--paper-muted);
+  margin-top: 12px; font-size: 0.78rem; color: var(--band-muted);
   font-style: italic; text-align: center;
 }
-.hero .btn { background: #2c2618; border-color: #2c2618; color: var(--paper); }
+.hero .btn { background: #2c2618; border-color: #2c2618; color: var(--band); }
 .hero .btn.ghost { background: transparent; color: #2c2618; }
 
 @media (prefers-color-scheme: dark) {
   .hero {
-    --paper: #241d12;
-    --paper-ink: #ece3cf;
-    --paper-muted: #a4957a;
+    --band: #241d12;
+    --band-ink: #ece3cf;
+    --band-muted: #a4957a;
   }
   .hero .eyebrow { color: #c79a4e; }
   .hero-art .frame::after {
     background:
-      radial-gradient(115% 105% at 50% 45%, rgba(0, 0, 0, 0) 55%, var(--paper) 100%),
+      radial-gradient(115% 105% at 50% 45%, rgba(0, 0, 0, 0) 55%, var(--band) 100%),
       rgba(36, 29, 18, 0.18);
   }
   .hero .btn { background: #ece3cf; border-color: #ece3cf; color: #241d12; }

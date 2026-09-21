@@ -2,17 +2,25 @@
   --ground:   #f2f5f7;
   --surface:  #ffffff;
   --raised:   #fbfcfd;
-  --ink:      #111920;
+  --ink:      #141a1f;
   --muted:    #5a6976;
   --faint:    #8a97a3;
   --line:     #d2dbe3;
   --rule:     #e3eaf0;
-  --teal:     #0e6b6b;
+  --teal:     #0b5f5f;
   --teal-bg:  #dceceb;
-  --amber:    #a9631a;
+  --amber:    #8a5410;
   --amber-bg: #f7e9d6;
-  --fault:    #a92020;
+  --fault:    #8f1d1d;
   --fault-bg: #f6e0e0;
+
+  /* Paper — the human side. Fixed in both themes: a receipt is a printed
+     thing and does not invert, any more than a ticket does. */
+  --paper:       #eae2cc;
+  --paper-ink:   #2c2618;
+  --paper-muted: #5b5340;
+  --paper-line:  #cdc2a4;
+  --paper-seal:  #0b5f5f;
 
   --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -129,7 +137,10 @@ nav.top .inner {
 }
 nav.top .brand { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; color: var(--ink); }
 nav.top a { font-size: 0.86rem; color: var(--muted); }
-nav.top a.router-link-active { color: var(--teal); font-weight: 600; }
+/* The brand is not a nav item: on "/" it matched router-link-active and the
+   wordmark turned teal, so the logo changed colour depending on the page. */
+nav.top a.router-link-active:not(.brand) { color: var(--teal); font-weight: 600; }
+nav.top a.brand { color: var(--ink); }
 
 table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
 th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
