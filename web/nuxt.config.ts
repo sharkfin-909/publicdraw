@@ -36,7 +36,7 @@ export default defineNuxtConfig({
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         // The seal, so a mobile browser's chrome joins the record side of the
         // palette rather than picking its own colour.
-        { name: 'theme-color', content: '#0b5f5f' },
+        { name: 'theme-color', content: '#0a5f72' },
       ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },

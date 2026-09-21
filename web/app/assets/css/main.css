@@ -6,25 +6,35 @@
   paper and there is no second theme to keep in step. color-scheme is pinned
   to light so form controls and scrollbars do not render dark underneath it.
 */
+/*
+  Ordnance, on white — one deliberate look, no second theme.
+
+  The three accents sit at least 60 degrees apart in hue so a reader
+  separates ok, skip and fail by colour rather than by reading the label.
+  Every text value clears AA on both the page and the card tint; --control
+  is a separate, darker line because on a white page a 1.4:1 border is not
+  an identifiable control boundary (WCAG 1.4.11 wants 3:1).
+*/
 :root {
   color-scheme: light;
 
-  --ground:   #eae2cc;
-  --surface:  #f4efe0;
-  --raised:   #faf7ee;
-  --ink:      #2c2618;
-  --muted:    #5b5340;
-  --faint:    #8a7f65;
-  --line:     #cdc2a4;
-  --rule:     #ded4bb;
+  --ground:   #ffffff;
+  --surface:  #f7f9fb;
+  --raised:   #ffffff;
+  --ink:      #0f1620;
+  --muted:    #4b5566;
+  --faint:    #656f7e;
+  --line:     #dbe3ea;
+  --control:  #7f8d9c;
+  --rule:     #e6ecf2;
 
   /* Each carries a job in the protocol, not a mood. */
-  --teal:     #0b5f5f;
-  --teal-bg:  #d9e6e2;
-  --amber:    #8a5410;
-  --amber-bg: #f0e3cb;
-  --fault:    #8f1d1d;
-  --fault-bg: #f0dcd6;
+  --seal:     #0a5f72;
+  --seal-bg:  #e0edf1;
+  --beacon:    #5b3a97;
+  --beacon-bg: #eae3f4;
+  --fault:    #9c1f35;
+  --fault-bg: #f6e2e6;
 
   --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -44,9 +54,9 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-a { color: var(--teal); text-decoration: none; }
+a { color: var(--seal); text-decoration: none; }
 a:hover { text-decoration: underline; }
-:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; border-radius: 2px; }
+:focus-visible { outline: 2px solid var(--seal); outline-offset: 2px; border-radius: 2px; }
 
 h1, h2, h3 { font-family: var(--serif); font-weight: 600; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
 h1 { font-size: clamp(1.7rem, 4vw, 2.3rem); line-height: 1.12; }
@@ -58,7 +68,7 @@ p { margin: 0 0 14px; }
 
 .eyebrow {
   font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.14em;
-  text-transform: uppercase; color: var(--teal); margin: 0 0 8px;
+  text-transform: uppercase; color: var(--seal); margin: 0 0 8px;
 }
 .muted { color: var(--muted); }
 .mono { font-family: var(--mono); font-size: 0.85em; }
@@ -82,26 +92,26 @@ label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 5px;
 input, select, textarea {
   font: inherit; width: 100%; padding: 9px 11px;
   background: var(--raised); color: var(--ink);
-  border: 1px solid var(--line); border-radius: 3px;
+  border: 1px solid var(--control); border-radius: 3px;
 }
 textarea { font-family: var(--mono); font-size: 0.85rem; min-height: 130px; resize: vertical; }
 
 button {
   font: inherit; font-weight: 600; font-size: 0.88rem; cursor: pointer;
   padding: 9px 16px; border-radius: 3px;
-  background: var(--teal); color: var(--surface); border: 1px solid var(--teal);
+  background: var(--seal); color: var(--surface); border: 1px solid var(--seal);
 }
 button:hover:not(:disabled) { filter: brightness(1.12); }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
-button.ghost { background: transparent; color: var(--teal); }
+button.ghost { background: transparent; color: var(--seal); }
 
 .pill {
   font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.06em;
   padding: 2px 9px; border-radius: 10px; text-transform: uppercase; white-space: nowrap;
 }
-.pill.open      { background: var(--amber-bg); color: var(--amber); }
-.pill.committed { background: var(--teal-bg);  color: var(--teal); }
-.pill.drawn     { background: var(--teal-bg);  color: var(--teal); }
+.pill.open      { background: var(--beacon-bg); color: var(--beacon); }
+.pill.committed { background: var(--seal-bg);  color: var(--seal); }
+.pill.drawn     { background: var(--seal-bg);  color: var(--seal); }
 
 .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 
@@ -110,7 +120,7 @@ button.ghost { background: transparent; color: var(--teal); }
 .kv dd { margin: 0; min-width: 0; font-family: var(--mono); font-size: 0.82rem; overflow-wrap: anywhere; }
 
 .error { background: var(--fault-bg); color: var(--fault); padding: 10px 13px; border-radius: 3px; font-size: 0.88rem; }
-.notice { background: var(--amber-bg); color: var(--amber); padding: 10px 13px; border-radius: 3px; font-size: 0.88rem; }
+.notice { background: var(--beacon-bg); color: var(--beacon); padding: 10px 13px; border-radius: 3px; font-size: 0.88rem; }
 
 nav.top {
   border-bottom: 1px solid var(--rule); background: var(--surface);
@@ -124,7 +134,7 @@ nav.top .brand { font-family: var(--serif); font-size: 1.15rem; font-weight: 600
 nav.top a { font-size: 0.86rem; color: var(--muted); }
 /* The brand is not a nav item: on "/" it matched router-link-active and the
    wordmark turned teal, so the logo changed colour depending on the page. */
-nav.top a.router-link-active:not(.brand) { color: var(--teal); font-weight: 600; }
+nav.top a.router-link-active:not(.brand) { color: var(--seal); font-weight: 600; }
 nav.top a.brand { color: var(--ink); }
 
 table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }

@@ -83,13 +83,13 @@ function check() {
   ticket does not invert.
 */
 .ticket {
-  background: var(--raised);
+  background: var(--surface);
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: 3px;
   padding: 24px 26px;
   position: relative;
-  box-shadow: 0 1px 0 rgba(44, 38, 24, 0.06), 0 8px 24px -14px rgba(44, 38, 24, 0.5);
+  box-shadow: 0 1px 0 rgba(15, 22, 32, 0.04), 0 10px 26px -16px rgba(15, 22, 32, 0.45);
 }
 .ticket::before {
   content: '';
@@ -101,7 +101,7 @@ function check() {
 .ticket-title { font-family: var(--serif); font-size: 1.12rem; font-weight: 600; }
 .ticket-verdict {
   font-family: var(--serif); font-size: 1.3rem; margin: 22px 0 0;
-  color: var(--teal);
+  color: var(--seal);
 }
 .ticket.bad .ticket-verdict { color: #8f1d1d; }
 .ticket :deep(.kv dt) { color: var(--muted); }
@@ -111,5 +111,5 @@ function check() {
   background: rgba(11, 95, 95, 0.09);
   font-size: 0.86rem; line-height: 1.55; color: var(--ink);
 }
-.ticket-note a { color: var(--teal); font-weight: 600; }
+.ticket-note a { color: var(--seal); font-weight: 600; }
 </style>

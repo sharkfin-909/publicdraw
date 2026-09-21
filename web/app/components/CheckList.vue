@@ -43,12 +43,12 @@ defineProps<{ report: Report }>()
   font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.06em;
   padding: 2px 0; border-radius: 2px; text-align: center;
 }
-.tag.ok   { background: var(--teal-bg);  color: var(--teal); }
-.tag.skip { background: var(--amber-bg); color: var(--amber); }
+.tag.ok   { background: var(--seal-bg);  color: var(--seal); }
+.tag.skip { background: var(--beacon-bg); color: var(--beacon); }
 .tag.fail { background: var(--fault-bg); color: var(--fault); }
 .detail { font-family: var(--mono); font-size: 0.74rem; color: var(--faint); text-align: right; }
 .verdict { margin: 16px 0 0; font-weight: 600; font-size: 0.92rem; }
-.verdict.pass { color: var(--teal); }
+.verdict.pass { color: var(--seal); }
 .verdict.fail { color: var(--fault); }
 .footnote { font-size: 0.8rem; margin: 6px 0 0; }
 @media (max-width: 620px) {

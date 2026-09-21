@@ -156,7 +156,7 @@ useHead({
   min-width: 0;
 }
 .hero-copy { min-width: 0; display: flex; flex-direction: column; justify-content: center; }
-.hero .eyebrow { color: #6f5320; }
+.hero .eyebrow { color: var(--seal); }
 .lede {
   font-family: var(--serif); font-size: 1.22rem; line-height: 1.5;
   color: var(--muted); margin-bottom: 0;
@@ -174,6 +174,7 @@ useHead({
   display: block; width: 100%; height: 100%;
   max-height: 344px;
   object-fit: cover;
+  border-radius: 3px;
 }
 .hero-art figcaption {
   margin-top: 6px; font-size: 0.78rem; color: var(--muted);
@@ -187,10 +188,10 @@ useHead({
 .btn {
   display: inline-block; font-weight: 600; font-size: 0.88rem;
   padding: 10px 18px; border-radius: 3px;
-  background: var(--teal); color: #f6f2e6; border: 1px solid var(--teal);
+  background: var(--seal); color: #ffffff; border: 1px solid var(--seal);
 }
 .btn:hover { text-decoration: none; filter: brightness(1.12); }
-.btn.ghost { background: transparent; color: var(--teal); }
+.btn.ghost { background: transparent; color: var(--seal); }
 
 @media (max-width: 760px) {
   .hero { grid-template-columns: 1fr; gap: 22px; padding-block: 18px 8px; }

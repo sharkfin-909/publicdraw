@@ -47,10 +47,10 @@ async function copy() {
 
 <style scoped>
 .admissions {
-  background: var(--amber-bg); border: 1px solid var(--amber);
+  background: var(--beacon-bg); border: 1px solid var(--beacon);
   border-radius: 3px; padding: 16px 18px; margin-top: 14px;
 }
-.admissions h3 { color: var(--amber); }
-.why { font-size: 0.82rem; color: var(--amber); max-width: 62ch; opacity: 0.92; }
-.admissions td, .admissions th { border-bottom-color: color-mix(in srgb, var(--amber) 25%, transparent); }
+.admissions h3 { color: var(--beacon); }
+.why { font-size: 0.82rem; color: var(--beacon); max-width: 62ch; opacity: 0.92; }
+.admissions td, .admissions th { border-bottom-color: color-mix(in srgb, var(--beacon) 25%, transparent); }
 </style>

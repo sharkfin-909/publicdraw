@@ -150,6 +150,6 @@ onMounted(load)
 
 <style scoped>
 .drawrow { display: block; color: inherit; }
-.drawrow:hover { text-decoration: none; border-color: var(--teal); }
+.drawrow:hover { text-decoration: none; border-color: var(--seal); }
 .dtitle { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; }
 </style>

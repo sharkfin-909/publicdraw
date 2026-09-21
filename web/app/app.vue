@@ -23,5 +23,5 @@ nav.top a.brand { display: inline-flex; align-items: center; gap: 9px; }
 nav.top a.brand:hover { text-decoration: none; }
 nav.top a.admin { margin-left: auto; color: var(--faint); }
 .vis { border-color: var(--line); }
-.vis.listed { border-color: var(--teal); }
+.vis.listed { border-color: var(--seal); }
 </style>

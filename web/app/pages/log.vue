@@ -79,8 +79,8 @@ onMounted(load)
       </p>
     </section>
 
-    <section v-if="abandoned.length" class="card" style="border-color: var(--amber)">
-      <h2 style="color: var(--amber)">
+    <section v-if="abandoned.length" class="card" style="border-color: var(--beacon)">
+      <h2 style="color: var(--beacon)">
         {{ abandoned.length }} draw{{ abandoned.length === 1 ? '' : 's' }} with no published result
       </h2>
       <p class="muted" style="font-size: 0.85rem">

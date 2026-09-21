@@ -314,7 +314,7 @@ onMounted(() => {
           </button>
         </div>
         <div v-if="selfResult" style="margin-top: 12px">
-          <p v-if="selfResult.found" style="color: var(--teal); font-weight: 600">
+          <p v-if="selfResult.found" style="color: var(--seal); font-weight: 600">
             Found — you are entry #{{ selfResult.index }} of {{ leafList.size }} in the committed
             roster.
           </p>
@@ -367,7 +367,7 @@ onMounted(() => {
           <button class="ghost" @click="getReceipt">Fetch and check</button>
         </div>
         <div v-if="receiptResult" style="margin-top: 12px">
-          <p :style="{ color: receiptResult.ok ? 'var(--teal)' : 'var(--fault)', fontWeight: 600 }">
+          <p :style="{ color: receiptResult.ok ? 'var(--seal)' : 'var(--fault)', fontWeight: 600 }">
             {{ receiptResult.ok ? 'Receipt verifies' : 'Receipt does NOT verify' }} — {{ receiptResult.label }}
           </p>
           <p class="hash">root {{ receiptResult.root }}</p>
@@ -391,7 +391,7 @@ onMounted(() => {
 }
 .wrank {
   font-family: var(--mono); font-size: 0.72rem; color: var(--surface);
-  background: var(--teal); border-radius: 10px; padding: 2px 9px; flex: none;
+  background: var(--seal); border-radius: 10px; padding: 2px 9px; flex: none;
 }
 .wlabel { flex: 1; font-weight: 500; word-break: break-all; }
 </style>

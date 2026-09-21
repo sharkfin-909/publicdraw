@@ -41,9 +41,9 @@ const height = computed(() => Math.round((props.size / 96) * 64))
 
 <style scoped>
 .mark .edge   { stroke: var(--ink); }
-.mark .stub   { fill: var(--teal); }
+.mark .stub   { fill: var(--seal); }
 .mark .perf   { stroke: var(--surface); }
-.mark .beacon { fill: var(--amber); }
+.mark .beacon { fill: var(--beacon); }
 
 /* Single colour, for stamps and print. */
 .mark.mono .edge   { stroke: currentColor; }

@@ -26,16 +26,16 @@ const { label, published } = useCountdown(() => props.round)
 
 <style scoped>
 .countdown {
-  background: var(--amber-bg); border: 1px solid var(--amber);
+  background: var(--beacon-bg); border: 1px solid var(--beacon);
   border-radius: 3px; padding: 18px 20px;
 }
-.countdown.published { background: var(--teal-bg); border-color: var(--teal); }
+.countdown.published { background: var(--seal-bg); border-color: var(--seal); }
 .num {
   font-family: var(--mono); font-size: 2rem; font-weight: 500;
-  line-height: 1.1; color: var(--amber); font-variant-numeric: tabular-nums;
+  line-height: 1.1; color: var(--beacon); font-variant-numeric: tabular-nums;
 }
-.published .num { color: var(--teal); font-size: 1.1rem; }
-.sub { font-size: 0.85rem; color: var(--amber); margin-top: 4px; }
-.published .sub { color: var(--teal); }
-.why { font-size: 0.8rem; color: var(--amber); margin: 12px 0 0; max-width: 56ch; opacity: 0.9; }
+.published .num { color: var(--seal); font-size: 1.1rem; }
+.sub { font-size: 0.85rem; color: var(--beacon); margin-top: 4px; }
+.published .sub { color: var(--seal); }
+.why { font-size: 0.8rem; color: var(--beacon); margin: 12px 0 0; max-width: 56ch; opacity: 0.9; }
 </style>

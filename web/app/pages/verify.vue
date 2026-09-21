@@ -98,5 +98,5 @@ function onDrop(ev: DragEvent) {
 .drop { border-style: dashed; }
 .winners { list-style: none; padding: 0; margin: 12px 0 18px; }
 .winners li { display: flex; gap: 12px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--rule); }
-.wrank { font-family: var(--mono); font-size: 0.7rem; color: var(--surface); background: var(--teal); border-radius: 10px; padding: 2px 8px; }
+.wrank { font-family: var(--mono); font-size: 0.7rem; color: var(--surface); background: var(--seal); border-radius: 10px; padding: 2px 8px; }
 </style>
