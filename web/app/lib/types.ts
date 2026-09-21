@@ -99,6 +99,8 @@ export interface Receipt {
   merkle_path: string[]
 }
 
+export type Visibility = 'public' | 'unlisted'
+
 export interface DrawSummary {
   params: DrawParams
   params_sig: string
@@ -106,5 +108,6 @@ export interface DrawSummary {
   entry_count: number
   roster_commit?: RosterCommitment
   roster_sig?: string
+  visibility?: Visibility
   labels?: string[]
 }

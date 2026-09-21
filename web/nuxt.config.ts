@@ -4,7 +4,15 @@ export default defineNuxtConfig({
   ssr: true,
 
   runtimeConfig: {
+    // Server-side only. Pages render on the server, so they cannot go through
+    // the browser-facing /api proxy — they talk to the service directly.
+    apiInternal: process.env.NUXT_API_INTERNAL || 'http://localhost:8080/v1',
+
     public: {
+      // Absolute origin, needed for canonicals, Open Graph and the sitemap.
+      siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+      siteName: 'publicdraw',
+
       // The draw service. Proxied in dev (see routeRules) so the browser can
       // talk to it without the Go server needing CORS headers.
       apiBase: '/api',

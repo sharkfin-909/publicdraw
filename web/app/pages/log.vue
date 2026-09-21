@@ -2,7 +2,12 @@
 import { replay } from '~/lib/translog'
 import type { LogRecord } from '~/lib/types'
 
-useHead({ title: 'Transparency log — truedraw' })
+useSeo({
+  title: 'Transparency log',
+  description:
+    'Every draw\u2019s creation, cutoff and result, chained so that editing or removing any record breaks everything after it \u2014 and so a draw run and quietly abandoned is visible.',
+  path: '/log',
+})
 
 const api = useApi()
 const records = ref<LogRecord[]>([])

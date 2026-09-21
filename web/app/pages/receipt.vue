@@ -2,7 +2,12 @@
 import { verifyReceipt } from '~/lib/verify'
 import type { Receipt } from '~/lib/types'
 
-useHead({ title: 'Check a receipt — truedraw' })
+useSeo({
+  title: 'Check an entry receipt',
+  description:
+    'Confirm you were in a draw\u2019s committed entry list, at a specific position, without revealing anyone else. Checked in your browser.',
+  path: '/receipt',
+})
 
 const raw = ref('')
 const result = ref<{ ok: boolean; receipt: Receipt } | null>(null)

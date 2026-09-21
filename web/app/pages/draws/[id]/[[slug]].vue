@@ -2,18 +2,87 @@
 import type { Admission, Bundle, DrawSummary } from '~/lib/types'
 import { verifyBundle, findOwnLeaf, type Report } from '~/lib/verify'
 import { timeOfRound } from '~/lib/beacon'
+import { drawPath } from '~/utils/seo'
 
 const route = useRoute()
 const id = computed(() => String(route.params.id))
 const api = useApi()
 
-const draw = ref<DrawSummary>()
-const bundle = ref<Bundle>()
+/**
+ * Fetched on the server, not in onMounted.
+ *
+ * A draw result is the thing people share, and no social scraper runs
+ * JavaScript — a page whose content only appears after hydration has no link
+ * preview and no dependable crawl. It also means the title and description
+ * below are real by the time the HTML leaves the server.
+ */
+const { data: initial, error: loadErr, refresh } = await useAsyncData(
+  () => `draw:${id.value}`,
+  async () => {
+    const summary = await api.getDraw(id.value)
+    const withBundle =
+      summary.state === 'drawn' ? await api.bundle(id.value).catch(() => undefined) : undefined
+    return { summary, bundle: withBundle }
+  },
+  { watch: [id] },
+)
+
+const draw = computed(() => initial.value?.summary)
+const bundle = ref<Bundle | undefined>(initial.value?.bundle)
+watch(initial, (v) => (bundle.value = v?.bundle))
+
 const report = ref<Report>()
 const err = ref('')
 const busy = ref('')
 
-useHead(() => ({ title: draw.value ? `${draw.value.params.title} — truedraw` : 'Draw — truedraw' }))
+// A missing draw must return 404, not a 200 with an empty shell — otherwise
+// every mistyped id becomes an indexable soft-404.
+if (loadErr.value || !draw.value) {
+  throw createError({ statusCode: 404, statusMessage: 'No such draw', fatal: true })
+}
+
+/**
+ * Indexing is opt-in, and the default is what matters.
+ *
+ * A drawn page names its winners — that is the whole point of publishing a
+ * result — so for a housing ballot or a grant round it carries real people's
+ * details. Nothing here reaches a search index unless the organiser
+ * deliberately listed it.
+ */
+const listed = computed(() => draw.value?.visibility === 'public')
+
+const canonicalPath = computed(() => drawPath(id.value, draw.value?.params.title))
+
+const visBusy = ref(false)
+async function toggleVisibility() {
+  visBusy.value = true
+  try {
+    await api.setVisibility(id.value, listed.value ? 'unlisted' : 'public')
+    await refresh()
+  } catch (e) {
+    err.value = errorText(e)
+  } finally {
+    visBusy.value = false
+  }
+}
+
+useSeo(() => {
+  const d = draw.value!
+  const n = d.roster_commit?.size ?? d.entry_count
+  const state =
+    d.state === 'drawn'
+      ? `Result published: ${d.params.winners} of ${n} selected.`
+      : d.state === 'committed'
+        ? `Entry list frozen at ${n} entries, waiting on drand round ${d.params.target_round}.`
+        : 'Entries open.'
+  return {
+    title: d.params.title || 'Draw',
+    description: `${state} Committed before the deciding randomness existed, and checkable in your own browser.`,
+    path: canonicalPath.value,
+    index: listed.value,
+    type: 'article',
+  }
+})
 
 const entriesText = ref('')
 const admitted = ref<Admission[]>([])
@@ -47,7 +116,6 @@ async function load() {
  */
 async function pullBundle() {
   bundle.value = await api.bundle(id.value)
-  report.value = verifyBundle(bundle.value)
 }
 
 async function act(name: string, fn: () => Promise<unknown>) {
@@ -105,7 +173,14 @@ const cutoffPassed = computed(() =>
   draw.value ? Date.now() / 1000 >= draw.value.params.cutoff_at : false,
 )
 
-onMounted(load)
+// Verification is deliberately client-only: it must run on the reader's
+// machine against the pinned drand key, never on a server they would then
+// have to trust. The server renders the result; the browser checks it.
+onMounted(() => {
+  watchEffect(() => {
+    report.value = bundle.value ? verifyBundle(bundle.value) : undefined
+  })
+})
 </script>
 
 <template>
@@ -248,6 +323,28 @@ onMounted(load)
             as issued before concluding anything.
           </p>
           <p class="hash">leaf {{ selfResult.leaf || '—' }}</p>
+        </div>
+      </section>
+
+      <section class="card vis" :class="{ listed }">
+        <div class="spread">
+          <div>
+            <h2>{{ listed ? 'Published' : 'Unlisted' }}</h2>
+            <p class="muted" style="font-size: 0.86rem; margin: 6px 0 0; max-width: 54ch">
+              <template v-if="listed">
+                This draw appears in the public directory and may be indexed by search engines.
+                Winners are named on this page.
+              </template>
+              <template v-else>
+                Anyone with the link can open and verify this draw, but it is kept out of the
+                directory, the sitemap and search results. This is the default, because a result
+                page names its winners.
+              </template>
+            </p>
+          </div>
+          <button class="ghost" :disabled="visBusy" @click="toggleVisibility">
+            {{ visBusy ? 'Saving\u2026' : listed ? 'Unlist' : 'Publish to directory' }}
+          </button>
         </div>
       </section>
 

@@ -33,6 +33,8 @@ func New(svc *service.Service) *Server {
 	s.mux.HandleFunc("POST /v1/draws", s.createDraw)
 	s.mux.HandleFunc("GET /v1/draws", s.listDraws)
 	s.mux.HandleFunc("GET /v1/draws/{id}", s.getDraw)
+	s.mux.HandleFunc("GET /v1/public/draws", s.listPublic)
+	s.mux.HandleFunc("PUT /v1/draws/{id}/visibility", s.setVisibility)
 	s.mux.HandleFunc("POST /v1/draws/{id}/entries", s.addEntries)
 	s.mux.HandleFunc("POST /v1/draws/{id}/commit", s.commit)
 	s.mux.HandleFunc("GET /v1/draws/{id}/leaves", s.leaves)
@@ -115,6 +117,48 @@ func (s *Server) createDraw(w http.ResponseWriter, r *http.Request) {
 	write(w, http.StatusCreated, st)
 }
 
+// listPublic backs the sitemap. It returns only what an organiser opted in,
+// with just enough to build a URL and a listing — never entries or salts.
+func (s *Server) listPublic(w http.ResponseWriter, _ *http.Request) {
+	sts, err := s.svc.ListPublic()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	out := make([]map[string]any, 0, len(sts))
+	for _, st := range sts {
+		row := map[string]any{
+			"draw_id": st.Params.DrawID, "title": st.Params.Title,
+			"state": st.State, "winners": st.Params.Winners,
+			"disclosure": st.Params.Disclosure, "created_at": st.Params.CreatedAt,
+			"target_round": st.Params.TargetRound, "entry_count": len(st.Sealed),
+		}
+		if st.RosterCommit != nil {
+			row["committed_at"] = st.RosterCommit.CommittedAt
+		}
+		out = append(out, row)
+	}
+	write(w, http.StatusOK, map[string]any{"draws": out})
+}
+
+type visibilityReq struct {
+	Visibility string `json:"visibility"`
+}
+
+func (s *Server) setVisibility(w http.ResponseWriter, r *http.Request) {
+	var req visibilityReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		fail(w, http.StatusBadRequest, err)
+		return
+	}
+	st, err := s.svc.SetVisibility(r.PathValue("id"), service.Visibility(req.Visibility))
+	if err != nil {
+		svcErr(w, err)
+		return
+	}
+	write(w, http.StatusOK, map[string]any{"draw_id": st.Params.DrawID, "visibility": st.Visible()})
+}
+
 func (s *Server) listDraws(w http.ResponseWriter, _ *http.Request) {
 	ids, err := s.svc.List()
 	if err != nil {
@@ -135,6 +179,7 @@ func (s *Server) getDraw(w http.ResponseWriter, r *http.Request) {
 	out := map[string]any{
 		"params": st.Params, "params_sig": st.ParamsSig,
 		"state": st.State, "entry_count": len(st.Sealed),
+		"visibility": st.Visible(),
 	}
 	if st.RosterCommit != nil {
 		out["roster_commit"] = st.RosterCommit

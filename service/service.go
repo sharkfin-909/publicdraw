@@ -36,6 +36,26 @@ const (
 	StateDrawn     State = "drawn"     // result published
 )
 
+// Visibility controls whether a draw is listed publicly and offered to search
+// engines. It is deliberately NOT part of draw.Params and never enters the
+// signed commitment: it is presentation, not protocol. A draw's bundle must
+// verify identically whether or not anyone chose to publicise it, and
+// changing visibility afterwards must not invalidate a signature.
+//
+// Unlisted is the default, and the default matters. Most draws worth running
+// involve housing applicants, grant seekers or ballot entrants, and a page
+// naming them has no business in a search index because nobody remembered to
+// opt out.
+type Visibility string
+
+const (
+	Unlisted Visibility = "unlisted"
+	Listed   Visibility = "public"
+)
+
+// Valid reports whether v is a known visibility.
+func (v Visibility) Valid() bool { return v == Unlisted || v == Listed }
+
 // Stored is the on-disk record of a draw.
 type Stored struct {
 	Params       draw.Params            `json:"params"`
@@ -45,9 +65,22 @@ type Stored struct {
 	RosterCommit *draw.RosterCommitment `json:"roster_commit,omitempty"`
 	RosterSig    string                 `json:"roster_sig,omitempty"`
 
+	// Visibility is presentation, not protocol — see the Visibility type.
+	Visibility Visibility `json:"visibility,omitempty"`
+
 	// AnchoredHead is the log head that was published to Rekor for this draw,
 	// recorded so the bundle can carry the matching inclusion proof.
 	AnchoredHead string `json:"anchored_head,omitempty"`
+}
+
+// Visible returns the effective visibility, treating an absent value as
+// unlisted so that draws stored before this field existed stay out of the
+// index rather than silently opting in.
+func (s *Stored) Visible() Visibility {
+	if s.Visibility == Listed {
+		return Listed
+	}
+	return Unlisted
 }
 
 // Service owns the operator key, the storage directory and the log.
@@ -498,6 +531,45 @@ func (s *Service) Abandoned() ([]string, error) {
 		}
 		if !now.Before(s.chain.TimeOf(st.Params.TargetRound)) {
 			out = append(out, id)
+		}
+	}
+	return out, nil
+}
+
+// SetVisibility marks a draw listed or unlisted. It touches no signed material.
+func (s *Service) SetVisibility(id string, v Visibility) (*Stored, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if !v.Valid() {
+		return nil, fmt.Errorf("service: unknown visibility %q", v)
+	}
+	st, err := s.load(id)
+	if err != nil {
+		return nil, err
+	}
+	st.Visibility = v
+	if err := s.save(st); err != nil {
+		return nil, err
+	}
+	return st, nil
+}
+
+// ListPublic returns only the draws their organiser chose to publicise. It is
+// what the sitemap is built from, so that opting in is the single gate.
+func (s *Service) ListPublic() ([]*Stored, error) {
+	ids, err := s.List()
+	if err != nil {
+		return nil, err
+	}
+	var out []*Stored
+	for _, id := range ids {
+		st, err := s.Get(id)
+		if err != nil {
+			continue
+		}
+		if st.Visible() == Listed {
+			out = append(out, st)
 		}
 	}
 	return out, nil

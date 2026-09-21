@@ -1,149 +1,106 @@
 <script setup lang="ts">
-import type { DrawSummary } from '~/lib/types'
+const site = useRuntimeConfig().public
 
-useHead({ title: 'truedraw — draws' })
-
-const api = useApi()
-const draws = ref<DrawSummary[]>([])
-const operator = ref<Awaited<ReturnType<typeof api.operator>>>()
-const loadError = ref('')
-const busy = ref(false)
-
-const form = reactive({
-  title: '',
-  winners: 1,
-  disclosure: 'private' as 'public' | 'private',
-  openMinutes: 10,
+useSeo({
+  title: 'Draws anyone can check',
+  description:
+    'Run a prize draw, ballot or allocation so the organiser demonstrably could not have steered the result — and so anyone can confirm that afterwards, in their own browser.',
+  path: '/',
 })
-const createError = ref('')
 
-async function load() {
-  loadError.value = ''
-  try {
-    const [{ draws: ids }, op] = await Promise.all([api.listDraws(), api.operator()])
-    operator.value = op
-    draws.value = await Promise.all((ids ?? []).map((id) => api.getDraw(id)))
-    draws.value.sort((a, b) => b.params.created_at - a.params.created_at)
-  } catch (e) {
-    loadError.value = errorText(e)
-  }
-}
-
-async function create() {
-  createError.value = ''
-  busy.value = true
-  try {
-    const made = await api.createDraw({
-      title: form.title,
-      winners: form.winners,
-      disclosure: form.disclosure,
-      open_for_seconds: Math.round(form.openMinutes * 60),
-    })
-    form.title = ''
-    await navigateTo(`/draws/${made.params.draw_id}`)
-  } catch (e) {
-    createError.value = errorText(e)
-  } finally {
-    busy.value = false
-  }
-}
-
-onMounted(load)
+// Modest and accurate. Marking up claims the page does not make is worse
+// than marking up nothing.
+useHead({
+  script: [
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: site.siteName,
+        applicationCategory: 'BusinessApplication',
+        operatingSystem: 'Web',
+        description:
+          'Verifiable random selection for prize draws, ballots and allocation. Open protocol, independently checkable results.',
+      }),
+    },
+  ],
+})
 </script>
 
 <template>
   <main class="wrap stack">
-    <header>
-      <p class="eyebrow">publicly verifiable draws</p>
-      <h1>Draws</h1>
-      <p class="muted" style="max-width: 62ch">
-        Every draw here commits to its rules before anyone enters, and to its entry list before the
-        randomness that decides it exists. Results verify in your own browser.
+    <header class="hero">
+      <p class="eyebrow">verifiable random selection</p>
+      <h1>Draws anyone can check</h1>
+      <p class="lede">
+        A draw is fair when the entry list was frozen before the randomness that picks from it
+        existed. Both halves of that are claims about <em>when a value was fixed</em> — which is
+        something you can prove, rather than ask people to take on trust.
       </p>
+      <div class="row" style="margin-top: 22px">
+        <NuxtLink to="/draws" class="btn">See published draws</NuxtLink>
+        <NuxtLink to="/verify" class="btn ghost">Verify a result</NuxtLink>
+      </div>
     </header>
 
-    <div v-if="loadError" class="error">
-      {{ loadError }} — is the draw service running? <code class="mono">vc serve</code>
-    </div>
-
-    <section class="card">
-      <h2>New draw</h2>
-      <p class="muted" style="font-size: 0.86rem">
-        These parameters are signed and logged now, before a single entry arrives. Changing any of
-        them later produces a different draw.
-      </p>
-      <form class="stack" style="gap: 12px" @submit.prevent="create">
-        <div>
-          <label for="title">What is this draw for?</label>
-          <input id="title" v-model="form.title" required placeholder="Two community grants" />
-        </div>
-        <div class="grid">
-          <div>
-            <label for="winners">Winners</label>
-            <input id="winners" v-model.number="form.winners" type="number" min="1" required />
-          </div>
-          <div>
-            <label for="open">Entries open for (minutes)</label>
-            <input id="open" v-model.number="form.openMinutes" type="number" min="1" step="1" required />
-          </div>
-          <div>
-            <label for="disclosure">Entry list</label>
-            <select id="disclosure" v-model="form.disclosure">
-              <option value="private">Private — winners only</option>
-              <option value="public">Public — publish every entry</option>
-            </select>
-          </div>
-        </div>
-        <p class="muted" style="font-size: 0.8rem; margin: 0">
-          <template v-if="form.disclosure === 'private'">
-            Entrants confirm their own inclusion with a receipt; nobody else's entry is published.
-          </template>
-          <template v-else>
-            Every entry is published and a verifier rebuilds the whole tree. Only use this where
-            entrants would not be harmed by being named.
-          </template>
+    <section class="grid three">
+      <div class="card">
+        <h2>Committed before, not after</h2>
+        <p>
+          The rules are signed before anyone enters. The entry list is signed at the cutoff, while
+          the deciding number still does not exist. An organiser who could freeze the list after
+          seeing the randomness could pick the winner — so the ordering is what carries the
+          guarantee, and every result is checked against it.
         </p>
-        <div v-if="createError" class="error">{{ createError }}</div>
-        <div class="row">
-          <button type="submit" :disabled="busy || !form.title">
-            {{ busy ? 'Creating…' : 'Create and commit parameters' }}
-          </button>
-        </div>
-      </form>
-    </section>
-
-    <section v-if="draws.length">
-      <h2 style="margin-bottom: 12px">All draws</h2>
-      <div class="stack" style="gap: 10px">
-        <NuxtLink v-for="d in draws" :key="d.params.draw_id" :to="`/draws/${d.params.draw_id}`" class="card drawrow">
-          <div class="spread">
-            <div>
-              <div class="dtitle">{{ d.params.title || 'Untitled draw' }}</div>
-              <div class="muted mono" style="font-size: 0.74rem">{{ d.params.draw_id }}</div>
-            </div>
-            <div class="row" style="gap: 10px">
-              <span class="pill" :class="d.state">{{ d.state }}</span>
-              <span class="muted" style="font-size: 0.8rem">
-                {{ d.entry_count }} {{ d.entry_count === 1 ? 'entry' : 'entries' }} ·
-                {{ d.params.winners }} to win · {{ d.params.disclosure }}
-              </span>
-            </div>
-          </div>
-        </NuxtLink>
+      </div>
+      <div class="card">
+        <h2>Randomness nobody chose</h2>
+        <p>
+          The deciding number comes from
+          <a href="https://drand.love" rel="noopener">drand</a>, a public beacon run by
+          independent organisations including Cloudflare and EPFL. No single party can predict it,
+          and — because the signature scheme is deterministic — none can influence it either.
+        </p>
+      </div>
+      <div class="card">
+        <h2>Checked in your browser</h2>
+        <p>
+          Verification runs on your machine against a key pinned in the page, not on ours. An
+          answer about whether a draw was honest is worth nothing when it comes from the people
+          who ran it.
+        </p>
       </div>
     </section>
 
-    <p v-if="operator" class="muted" style="font-size: 0.78rem">
-      Operator key <code class="mono">{{ operator.public_key.slice(0, 24) }}…</code> ·
-      beacon {{ operator.chain.name }} ({{ operator.chain.period_seconds }}s rounds) ·
-      <NuxtLink to="/log">log head</NuxtLink>
-      <code class="mono">{{ operator.log_head.slice(0, 16) }}…</code>
-    </p>
+    <section class="card">
+      <h2>What it does not prove</h2>
+      <p>
+        Worth stating plainly, because someone will find it otherwise. Receipts catch an entrant
+        being dropped; they do not catch a list padded with entries that were never real.
+        Timestamps are the operator's word until the log is anchored externally. And whether
+        everyone who should have been able to enter was told the draw existed is outside what any
+        of this can see.
+      </p>
+      <p style="margin-bottom: 0">
+        <NuxtLink to="/log">The transparency log</NuxtLink> covers the one remaining gap a single
+        result cannot: whether a draw was run repeatedly until the organiser liked the answer.
+      </p>
+    </section>
   </main>
 </template>
 
 <style scoped>
-.drawrow { display: block; color: inherit; }
-.drawrow:hover { text-decoration: none; border-color: var(--teal); }
-.dtitle { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; }
+.hero { padding-block: 22px 8px; max-width: 62ch; }
+.lede { font-family: var(--serif); font-size: 1.22rem; line-height: 1.5; color: var(--muted); }
+.grid.three { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.grid .card h2 { font-size: 1.05rem; margin-bottom: 8px; }
+.grid .card p { font-size: 0.9rem; margin: 0; }
+.btn {
+  display: inline-block; font-weight: 600; font-size: 0.88rem;
+  padding: 10px 18px; border-radius: 3px;
+  background: var(--teal); color: var(--surface); border: 1px solid var(--teal);
+}
+.btn:hover { text-decoration: none; filter: brightness(1.12); }
+.btn.ghost { background: transparent; color: var(--teal); }
 </style>

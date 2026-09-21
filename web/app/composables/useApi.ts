@@ -16,7 +16,12 @@ import type {
  * these calls are a transport, not an authority.
  */
 export function useApi() {
-  const base = useRuntimeConfig().public.apiBase
+  const cfg = useRuntimeConfig()
+  // On the server there is no browser proxy to ride, so talk to the service
+  // directly. Pages must render their content server-side: a social scraper
+  // does not run JavaScript, and a draw result that only appears after
+  // hydration has no Open Graph preview and no reliable crawl.
+  const base = import.meta.server ? cfg.apiInternal : cfg.public.apiBase
 
   const call = <T>(path: string, opts: Parameters<typeof $fetch>[1] = {}) =>
     $fetch<T>(`${base}${path}`, opts as never)
@@ -32,6 +37,15 @@ export function useApi() {
       }>('/operator'),
 
     listDraws: () => call<{ draws: string[] }>('/draws'),
+
+    /** Only draws whose organiser opted in. Backs the directory and sitemap. */
+    listPublic: () => call<{ draws: PublicDraw[] }>('/public/draws'),
+
+    setVisibility: (id: string, visibility: 'public' | 'unlisted') =>
+      call<{ draw_id: string; visibility: string }>(`/draws/${id}/visibility`, {
+        method: 'PUT',
+        body: { visibility },
+      }),
 
     getDraw: (id: string) => call<DrawSummary>(`/draws/${id}`),
 

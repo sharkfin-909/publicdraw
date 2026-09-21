@@ -2,7 +2,12 @@
 import { verifyBundle, type Report } from '~/lib/verify'
 import type { Bundle } from '~/lib/types'
 
-useHead({ title: 'Verify a bundle — truedraw' })
+useSeo({
+  title: 'Verify a draw result',
+  description:
+    'Check a published draw yourself. Verification runs entirely in your browser against a pinned randomness key — nothing is uploaded and no server is asked whether the draw was honest.',
+  path: '/verify',
+})
 
 const raw = ref('')
 const report = ref<Report>()
