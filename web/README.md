@@ -116,3 +116,11 @@ way.
 CORS on the Go service, so a page not served from this origin can fetch a
 bundle directly. Right now cross-origin verification means downloading the
 bundle and dropping it on `/verify`, which works but is a worse path.
+
+## Image credit
+
+The hero photograph is by Planet Volumes via Unsplash (`8QeyvEmQO6w`), used
+under the Unsplash License, which permits commercial use without attribution —
+credited here anyway. Derivatives in `web/public/hero/` are cropped to 4:5
+(and 1.91:1 for the social card) and re-encoded to AVIF, WebP and JPEG at
+three widths; the 881 KB original is not in the repo.

@@ -11,6 +11,18 @@ useSeo({
 // Modest and accurate. Marking up claims the page does not make is worse
 // than marking up nothing.
 useHead({
+  link: [
+    {
+      rel: 'preload',
+      as: 'image',
+      type: 'image/avif',
+      href: '/hero/tickets-960.avif',
+      imagesrcset:
+        '/hero/tickets-640.avif 640w, /hero/tickets-960.avif 960w, /hero/tickets-1280.avif 1280w',
+      imagesizes: '(max-width: 760px) calc(100vw - 40px), 352px',
+      fetchpriority: 'high',
+    },
+  ],
   script: [
     {
       type: 'application/ld+json',
@@ -30,19 +42,57 @@ useHead({
 
 <template>
   <main class="wrap stack">
-    <header class="hero">
-      <p class="eyebrow">verifiable random selection</p>
-      <h1>Draws anyone can check</h1>
-      <p class="lede">
-        A draw is fair when the entry list was frozen before the randomness that picks from it
-        existed. Both halves of that are claims about <em>when a value was fixed</em> — which is
-        something you can prove, rather than ask people to take on trust.
-      </p>
-      <div class="row" style="margin-top: 22px">
-        <NuxtLink to="/draws" class="btn">See published draws</NuxtLink>
-        <NuxtLink to="/verify" class="btn ghost">Verify a result</NuxtLink>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">verifiable random selection</p>
+        <h1>Draws anyone can check</h1>
+        <p class="lede">
+          A draw is fair when the entry list was frozen before the randomness that picks from it
+          existed. Both halves of that are claims about <em>when a value was fixed</em> — which is
+          something you can prove, rather than ask people to take on trust.
+        </p>
+        <div class="row" style="margin-top: 22px">
+          <NuxtLink to="/draws" class="btn">See published draws</NuxtLink>
+          <NuxtLink to="/verify" class="btn ghost">Verify a result</NuxtLink>
+        </div>
       </div>
-    </header>
+
+      <!--
+        Photograph by Planet Volumes via Unsplash (8QeyvEmQO6w), used under the
+        Unsplash License. Cropped to 4:5 and re-encoded; see web/README.md.
+      -->
+      <figure class="hero-art">
+        <!--
+          Eager and high priority: this is the largest element above the fold,
+          so it is the LCP candidate, and a hero that arrives late is the usual
+          reason that metric fails. Width and height are set so the box is
+          reserved before the bytes land and nothing shifts.
+        -->
+        <picture class="frame">
+          <source
+            type="image/avif"
+            srcset="/hero/tickets-640.avif 640w, /hero/tickets-960.avif 960w, /hero/tickets-1280.avif 1280w"
+            sizes="(max-width: 760px) calc(100vw - 40px), 352px"
+          />
+          <source
+            type="image/webp"
+            srcset="/hero/tickets-640.webp 640w, /hero/tickets-960.webp 960w, /hero/tickets-1280.webp 1280w"
+            sizes="(max-width: 760px) calc(100vw - 40px), 352px"
+          />
+          <img
+            src="/hero/tickets-960.jpg"
+            srcset="/hero/tickets-640.jpg 640w, /hero/tickets-960.jpg 960w, /hero/tickets-1280.jpg 1280w"
+            sizes="(max-width: 760px) calc(100vw - 40px), 352px"
+            width="1280"
+            height="1600"
+            alt="Raffle tickets falling through the air, each one printed “keep this ticket”"
+            fetchpriority="high"
+            decoding="async"
+          />
+        </picture>
+        <figcaption>Keep this ticket — every entrant gets a receipt they can check themselves.</figcaption>
+      </figure>
+    </section>
 
     <section class="grid three">
       <div class="card">
@@ -91,8 +141,86 @@ useHead({
 </template>
 
 <style scoped>
-.hero { padding-block: 22px 8px; max-width: 62ch; }
-.lede { font-family: var(--serif); font-size: 1.22rem; line-height: 1.5; color: var(--muted); }
+/*
+  The photograph is warm cream and the rest of the site is cool slate. Rather
+  than tint the image toward the palette and lose what makes it good, the hero
+  gets its own field in the paper's exact colour, so the join is invisible and
+  the warmth reads as a deliberate zone rather than a clash.
+*/
+.hero {
+  --paper: #eae2cc;
+  --paper-ink: #2c2618;
+  --paper-muted: #6a5f47;
+
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 0.78fr);
+  gap: 36px;
+  align-items: center;
+  background: var(--paper);
+  border-radius: 4px;
+  padding: 40px;
+  margin-block: 4px 8px;
+  color: var(--paper-ink);
+  overflow: hidden;
+}
+.hero .eyebrow { color: #6f5320; }
+.hero h1 { color: var(--paper-ink); }
+.hero-copy { min-width: 0; }
+.lede {
+  font-family: var(--serif); font-size: 1.22rem; line-height: 1.5;
+  color: var(--paper-muted); margin-bottom: 0;
+}
+.hero-art { margin: 0; min-width: 0; }
+/*
+  The photo's own paper is the same cream as the band, so a hard edge reads as
+  a rendering artefact. It is feathered with an overlay painted in the band
+  colour rather than a CSS mask: a mask depends on mask-mode resolving to
+  alpha, and when it resolves to luminance instead the black gradient erases
+  the image completely — which is exactly what happened here. An overlay has
+  no such ambiguity and, because it uses var(--paper), it stays correct when
+  the band turns dark.
+*/
+.hero-art .frame { position: relative; display: block; }
+.hero-art .frame::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: 3px;
+  background: radial-gradient(115% 105% at 50% 45%, transparent 55%, var(--paper) 100%);
+  pointer-events: none;
+}
+.hero-art img {
+  display: block; width: 100%; height: auto;
+  aspect-ratio: 4 / 5; object-fit: cover;
+  border-radius: 3px;
+}
+.hero-art figcaption {
+  margin-top: 12px; font-size: 0.78rem; color: var(--paper-muted);
+  font-style: italic; text-align: center;
+}
+.hero .btn { background: #2c2618; border-color: #2c2618; color: var(--paper); }
+.hero .btn.ghost { background: transparent; color: #2c2618; }
+
+@media (prefers-color-scheme: dark) {
+  .hero {
+    --paper: #241d12;
+    --paper-ink: #ece3cf;
+    --paper-muted: #a4957a;
+  }
+  .hero .eyebrow { color: #c79a4e; }
+  .hero-art .frame::after {
+    background:
+      radial-gradient(115% 105% at 50% 45%, rgba(0, 0, 0, 0) 55%, var(--paper) 100%),
+      rgba(36, 29, 18, 0.18);
+  }
+  .hero .btn { background: #ece3cf; border-color: #ece3cf; color: #241d12; }
+  .hero .btn.ghost { background: transparent; color: #ece3cf; }
+}
+
+@media (max-width: 760px) {
+  .hero { grid-template-columns: 1fr; padding: 26px 20px; gap: 26px; }
+  .hero-art { order: -1; }
+  .hero-art img { aspect-ratio: 16 / 10; }
+}
 .grid.three { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
 .grid .card h2 { font-size: 1.05rem; margin-bottom: 8px; }
 .grid .card p { font-size: 0.9rem; margin: 0; }

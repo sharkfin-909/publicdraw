@@ -7,6 +7,8 @@ interface SeoInput {
   /** Default is to allow indexing; pass false for anything with people in it. */
   index?: boolean
   type?: 'website' | 'article'
+  /** Absolute-from-root path; falls back to the shared card image. */
+  image?: string
 }
 
 /**
@@ -40,7 +42,12 @@ export function useSeo(input: MaybeRefOrGetter<SeoInput>) {
     ogType: () => toValue(input).type ?? 'website',
     ogUrl: () => absolute(site.siteUrl, toValue(input).path),
     ogSiteName: () => site.siteName,
+    ogImage: () => absolute(site.siteUrl, toValue(input).image ?? '/hero/og-tickets.jpg'),
+    ogImageWidth: 1200,
+    ogImageHeight: 630,
+    ogImageAlt: 'Raffle tickets falling through the air, each printed "keep this ticket"',
     twitterCard: 'summary_large_image',
+    twitterImage: () => absolute(site.siteUrl, toValue(input).image ?? '/hero/og-tickets.jpg'),
     twitterTitle: () => toValue(input).title,
     twitterDescription: () => clamp(toValue(input).description),
   })
