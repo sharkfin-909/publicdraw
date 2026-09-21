@@ -7,7 +7,7 @@
  * dropped, and the stroke thickens, so it still reads at nav and favicon size.
  */
 const props = withDefaults(
-  defineProps<{ size?: number; tone?: 'auto' | 'paper' | 'mono' }>(),
+  defineProps<{ size?: number; tone?: 'auto' | 'mono' }>(),
   { size: 30, tone: 'auto' },
 )
 
@@ -44,12 +44,6 @@ const height = computed(() => Math.round((props.size / 96) * 64))
 .mark .stub   { fill: var(--teal); }
 .mark .perf   { stroke: var(--surface); }
 .mark .beacon { fill: var(--amber); }
-
-/* On paper the mark keeps its printed colours in either theme. */
-.mark.paper .edge   { stroke: var(--paper-ink); }
-.mark.paper .stub   { fill: var(--paper-seal); }
-.mark.paper .perf   { stroke: var(--paper); }
-.mark.paper .beacon { fill: #8a5410; }
 
 /* Single colour, for stamps and print. */
 .mark.mono .edge   { stroke: currentColor; }

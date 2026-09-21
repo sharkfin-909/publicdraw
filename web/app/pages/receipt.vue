@@ -48,7 +48,7 @@ function check() {
 
     <section v-if="result" class="ticket" :class="{ bad: !result.ok }">
       <div class="ticket-head">
-        <BrandMark :size="30" tone="paper" />
+        <BrandMark :size="30" />
         <span class="ticket-title">{{ result.ok ? 'Keep this ticket' : 'Not in this roster' }}</span>
       </div>
 
@@ -83,32 +83,33 @@ function check() {
   ticket does not invert.
 */
 .ticket {
-  background: var(--paper);
-  color: var(--paper-ink);
-  border: 1px solid var(--paper-line);
+  background: var(--raised);
+  color: var(--ink);
+  border: 1px solid var(--line);
   border-radius: 3px;
   padding: 24px 26px;
   position: relative;
+  box-shadow: 0 1px 0 rgba(44, 38, 24, 0.06), 0 8px 24px -14px rgba(44, 38, 24, 0.5);
 }
 .ticket::before {
   content: '';
   position: absolute;
   left: 0; right: 0; top: 64px;
-  border-top: 1px dashed var(--paper-line);
+  border-top: 1px dashed var(--line);
 }
 .ticket-head { display: flex; align-items: center; gap: 11px; padding-bottom: 22px; }
 .ticket-title { font-family: var(--serif); font-size: 1.12rem; font-weight: 600; }
 .ticket-verdict {
   font-family: var(--serif); font-size: 1.3rem; margin: 22px 0 0;
-  color: var(--paper-seal);
+  color: var(--teal);
 }
 .ticket.bad .ticket-verdict { color: #8f1d1d; }
-.ticket :deep(.kv dt) { color: var(--paper-muted); }
-.ticket :deep(.kv dd) { color: var(--paper-ink); }
+.ticket :deep(.kv dt) { color: var(--muted); }
+.ticket :deep(.kv dd) { color: var(--ink); }
 .ticket-note {
   margin: 18px 0 0; padding: 12px 14px; border-radius: 3px;
   background: rgba(11, 95, 95, 0.09);
-  font-size: 0.86rem; line-height: 1.55; color: var(--paper-ink);
+  font-size: 0.86rem; line-height: 1.55; color: var(--ink);
 }
-.ticket-note a { color: var(--paper-seal); font-weight: 600; }
+.ticket-note a { color: var(--teal); font-weight: 600; }
 </style>

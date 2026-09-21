@@ -18,6 +18,7 @@
 </template>
 
 <style>
+nav.top { background: var(--surface); }
 nav.top a.brand { display: inline-flex; align-items: center; gap: 9px; }
 nav.top a.brand:hover { text-decoration: none; }
 nav.top a.admin { margin-left: auto; color: var(--faint); }

@@ -142,93 +142,60 @@ useHead({
 
 <style scoped>
 /*
-  The photograph is warm cream and the rest of the site is cool slate. Rather
-  than tint the image toward the palette and lose what makes it good, the hero
-  gets its own field in the paper's exact colour, so the join is invisible and
-  the warmth reads as a deliberate zone rather than a clash.
+  No band. The page ground and the photograph's paper are the same cream, so
+  the hero is simply the top of the page and the image dissolves into it.
+  That is what the feather was always for; on the old dark band there was
+  nothing to dissolve into and it had to be switched off.
 */
 .hero {
-  --band: #eae2cc;
-  --band-ink: #2c2618;
-  --band-muted: #6a5f47;
-
   display: grid;
-  grid-template-columns: 1fr minmax(0, 0.78fr);
-  gap: 36px;
-  align-items: center;
-  background: var(--band);
-  border-radius: 4px;
-  padding: 40px;
-  margin-block: 4px 8px;
-  color: var(--band-ink);
-  overflow: hidden;
+  grid-template-columns: 1fr minmax(0, 0.72fr);
+  gap: 40px;
+  align-items: stretch;
+  padding-block: 28px 12px;
+  min-width: 0;
 }
+.hero-copy { min-width: 0; display: flex; flex-direction: column; justify-content: center; }
 .hero .eyebrow { color: #6f5320; }
-.hero h1 { color: var(--band-ink); }
-.hero-copy { min-width: 0; }
 .lede {
   font-family: var(--serif); font-size: 1.22rem; line-height: 1.5;
-  color: var(--band-muted); margin-bottom: 0;
+  color: var(--muted); margin-bottom: 0;
 }
-.hero-art { margin: 0; min-width: 0; }
+
+.hero-art { margin: 0; min-width: 0; display: flex; flex-direction: column; }
 /*
-  The photo's own paper is the same cream as the band, so a hard edge reads as
-  a rendering artefact. It is feathered with an overlay painted in the band
-  colour rather than a CSS mask: a mask depends on mask-mode resolving to
-  alpha, and when it resolves to luminance instead the black gradient erases
-  the image completely — which is exactly what happened here. An overlay has
-  no such ambiguity and, because it uses var(--band), it stays correct when
-  the band turns dark.
+  No feather. The page ground and the photograph's paper are the same cream,
+  so the join is already invisible where it matters, and the gradient that was
+  meant to soften it cost three separate bugs — a mask that erased the image,
+  stops that never engaged, then stops that washed it out. Not worth it.
 */
-.hero-art .frame { position: relative; display: block; }
-.hero-art .frame::after {
-  content: '';
-  position: absolute; inset: 0;
-  border-radius: 3px;
-  background: radial-gradient(115% 105% at 50% 45%, transparent 55%, var(--band) 100%);
-  pointer-events: none;
-}
+.hero-art .frame { display: block; flex: 1; min-height: 0; }
 .hero-art img {
-  display: block; width: 100%; height: auto;
-  aspect-ratio: 4 / 5; object-fit: cover;
-  border-radius: 3px;
+  display: block; width: 100%; height: 100%;
+  max-height: 344px;
+  object-fit: cover;
 }
 .hero-art figcaption {
-  margin-top: 12px; font-size: 0.78rem; color: var(--band-muted);
+  margin-top: 6px; font-size: 0.78rem; color: var(--muted);
   font-style: italic; text-align: center;
 }
-.hero .btn { background: #2c2618; border-color: #2c2618; color: var(--band); }
-.hero .btn.ghost { background: transparent; color: #2c2618; }
 
-@media (prefers-color-scheme: dark) {
-  .hero {
-    --band: #241d12;
-    --band-ink: #ece3cf;
-    --band-muted: #a4957a;
-  }
-  .hero .eyebrow { color: #c79a4e; }
-  .hero-art .frame::after {
-    background:
-      radial-gradient(115% 105% at 50% 45%, rgba(0, 0, 0, 0) 55%, var(--band) 100%),
-      rgba(36, 29, 18, 0.18);
-  }
-  .hero .btn { background: #ece3cf; border-color: #ece3cf; color: #241d12; }
-  .hero .btn.ghost { background: transparent; color: #ece3cf; }
-}
-
-@media (max-width: 760px) {
-  .hero { grid-template-columns: 1fr; padding: 26px 20px; gap: 26px; }
-  .hero-art { order: -1; }
-  .hero-art img { aspect-ratio: 16 / 10; }
-}
 .grid.three { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
 .grid .card h2 { font-size: 1.05rem; margin-bottom: 8px; }
 .grid .card p { font-size: 0.9rem; margin: 0; }
+
 .btn {
   display: inline-block; font-weight: 600; font-size: 0.88rem;
   padding: 10px 18px; border-radius: 3px;
-  background: var(--teal); color: var(--surface); border: 1px solid var(--teal);
+  background: var(--teal); color: #f6f2e6; border: 1px solid var(--teal);
 }
 .btn:hover { text-decoration: none; filter: brightness(1.12); }
 .btn.ghost { background: transparent; color: var(--teal); }
+
+@media (max-width: 760px) {
+  .hero { grid-template-columns: 1fr; gap: 22px; padding-block: 18px 8px; }
+  .hero-art { order: -1; }
+  .hero-art .frame { flex: none; }
+  .hero-art img { aspect-ratio: 16 / 10; height: auto; max-height: none; }
+}
 </style>
