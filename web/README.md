@@ -82,6 +82,35 @@ shown at full size, against the round number, rather than hidden.
 verifier. It is the weakest way to check a bundle and this app does not model
 that habit.
 
+## Rekor anchoring
+
+The local transparency log is a hash chain, and a hash chain is tamper-evident
+only against someone who already saw an earlier head. If nobody wrote one down,
+an organiser can rebuild it from scratch and there is nothing to compare
+against.
+
+So each log head is published to [Rekor](https://docs.sigstore.dev/logging/overview/),
+Sigstore's public append-only log, at the moment the roster is frozen. The
+bundle carries the inclusion proof, and `app/lib/rekor.ts` checks it here in
+the browser — an anchor verified by the organiser's server would defeat the
+point of anchoring.
+
+Two details worth knowing:
+
+**Rekor v2 reports `integratedTime` as 0.** It is not a timestamp authority.
+Time comes instead from the *witness cosignatures* on the checkpoint, where
+several independent operators countersign the tree head along with the moment
+they saw it. Those are parsed and shown, and reported as **observed rather than
+verified** — checking them needs each witness's key and a policy for how many
+must agree.
+
+**The anchor covers the head as it stood when it was published**, not the head
+at the end of the draw, which the result record moves. Verification therefore
+checks that the anchored payload is a head the chain passed through *and* that
+the roster had been committed by that point. An anchor from before the entry
+list was frozen bounds nothing about when it was frozen, and is reported that
+way.
+
 ## Not done
 
 CORS on the Go service, so a page not served from this origin can fetch a

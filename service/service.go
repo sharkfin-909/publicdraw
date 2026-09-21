@@ -7,6 +7,7 @@ package service
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
@@ -21,6 +22,7 @@ import (
 	"github.com/sharkfin009/verifiable-challenge/bundle"
 	"github.com/sharkfin009/verifiable-challenge/draw"
 	"github.com/sharkfin009/verifiable-challenge/hashing"
+	"github.com/sharkfin009/verifiable-challenge/rekor"
 	"github.com/sharkfin009/verifiable-challenge/roster"
 	"github.com/sharkfin009/verifiable-challenge/translog"
 )
@@ -42,6 +44,10 @@ type Stored struct {
 	Sealed       []roster.Sealed        `json:"sealed,omitempty"`
 	RosterCommit *draw.RosterCommitment `json:"roster_commit,omitempty"`
 	RosterSig    string                 `json:"roster_sig,omitempty"`
+
+	// AnchoredHead is the log head that was published to Rekor for this draw,
+	// recorded so the bundle can carry the matching inclusion proof.
+	AnchoredHead string `json:"anchored_head,omitempty"`
 }
 
 // Service owns the operator key, the storage directory and the log.
@@ -55,6 +61,9 @@ type Service struct {
 	logID string
 	now   func() time.Time
 	fetch func(context.Context, uint64) (beacon.Round, error)
+
+	rekor     *rekor.Client
+	anchorKey *ecdsa.PrivateKey
 }
 
 // Option customises a Service.
@@ -66,6 +75,16 @@ func WithClock(f func() time.Time) Option { return func(s *Service) { s.now = f 
 
 // WithChain selects a drand chain.
 func WithChain(c beacon.Chain) Option { return func(s *Service) { s.chain = c } }
+
+// WithRekor enables anchoring the transparency-log head into Sigstore's Rekor.
+//
+// Without it the local log is tamper-evident only against someone who already
+// saw an earlier head. With it, each head lands in an append-only log the
+// organiser does not control, so a draw that was committed and then quietly
+// abandoned cannot be made to disappear.
+func WithRekor(c *rekor.Client, key *ecdsa.PrivateKey) Option {
+	return func(s *Service) { s.rekor, s.anchorKey = c, key }
+}
 
 // WithFetcher replaces the beacon source. Tests use it to drive a draw to
 // completion against a captured round instead of waiting for a live one; the
@@ -352,6 +371,11 @@ func (s *Service) assemble(st *Stored, r beacon.Round) (bundle.Bundle, error) {
 	}
 
 	rref := bundle.RosterRef{Commitment: rc, Signature: st.RosterSig, Leaves: ros.Leaves()}
+	if st.AnchoredHead != "" {
+		if h, err := hashing.ParseDigest(st.AnchoredHead); err == nil {
+			rref.RekorAnchor = s.AnchorFor(h)
+		}
+	}
 	if st.Params.Disclosure == roster.Public {
 		rref.Entries = st.Sealed
 	}
@@ -369,6 +393,87 @@ func (s *Service) assemble(st *Stored, r beacon.Round) (bundle.Bundle, error) {
 			Head:    s.log.Head(),
 		},
 	}, nil
+}
+
+// AnchorsEnabled reports whether this service can anchor into Rekor.
+func (s *Service) AnchorsEnabled() bool { return s.rekor != nil && s.anchorKey != nil }
+
+func (s *Service) anchorPath() string { return filepath.Join(s.dir, "anchors.json") }
+
+func (s *Service) loadAnchors() (map[string]*rekor.Anchor, error) {
+	out := map[string]*rekor.Anchor{}
+	b, err := os.ReadFile(s.anchorPath())
+	if errors.Is(err, os.ErrNotExist) {
+		return out, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(b, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AnchorHead publishes the current transparency-log head to Rekor and keeps
+// the resulting inclusion proof.
+//
+// It is a separate step rather than something CommitRoster does inline,
+// because Rekor batches and takes seconds, and the service mutex has no
+// business being held across a network call on the critical path of a draw.
+// Failure is not fatal: a draw with no anchor is still a valid draw, it just
+// rests more on the organiser's own word, and verification says so.
+func (s *Service) AnchorHead(ctx context.Context) (*rekor.Anchor, error) {
+	if !s.AnchorsEnabled() {
+		return nil, errors.New("service: rekor anchoring is not configured")
+	}
+	head := s.log.Head()
+
+	a, err := s.rekor.Submit(ctx, head[:], s.anchorKey)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.VerifyInclusion(); err != nil {
+		return nil, fmt.Errorf("service: rekor returned a proof that does not verify: %w", err)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	anchors, err := s.loadAnchors()
+	if err != nil {
+		return nil, err
+	}
+	anchors[head.String()] = a
+	b, err := json.MarshalIndent(anchors, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	if err := os.WriteFile(s.anchorPath(), append(b, '\n'), 0o644); err != nil {
+		return nil, err
+	}
+	return a, nil
+}
+
+// SetAnchoredHead records which log head was anchored for a draw, so the
+// bundle can carry the matching proof.
+func (s *Service) SetAnchoredHead(id string, head hashing.Digest) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	st, err := s.load(id)
+	if err != nil {
+		return err
+	}
+	st.AnchoredHead = head.String()
+	return s.save(st)
+}
+
+// AnchorFor returns the stored anchor for a log head, if one exists.
+func (s *Service) AnchorFor(head hashing.Digest) *rekor.Anchor {
+	anchors, err := s.loadAnchors()
+	if err != nil {
+		return nil
+	}
+	return anchors[head.String()]
 }
 
 // Abandoned lists draws whose target round has already published but whose

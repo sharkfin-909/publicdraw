@@ -18,6 +18,7 @@ import (
 	"github.com/sharkfin009/verifiable-challenge/draw"
 	"github.com/sharkfin009/verifiable-challenge/hashing"
 	"github.com/sharkfin009/verifiable-challenge/merkle"
+	"github.com/sharkfin009/verifiable-challenge/rekor"
 	"github.com/sharkfin009/verifiable-challenge/roster"
 	"github.com/sharkfin009/verifiable-challenge/translog"
 )
@@ -63,6 +64,15 @@ type RosterRef struct {
 	Leaves []hashing.Digest `json:"leaves"`
 
 	Entries []roster.Sealed `json:"entries,omitempty"`
+	// RekorAnchor publishes the transparency-log head into Sigstore's Rekor,
+	// a public append-only log the organiser does not run.
+	//
+	// This is what makes the local hash chain mean something to a stranger. A
+	// chain on its own is tamper-evident only against someone who already saw
+	// an earlier head; anchored, it cannot be quietly rebuilt, and a draw that
+	// was committed and then abandoned stays on the record.
+	RekorAnchor *rekor.Anchor `json:"rekor_anchor,omitempty"`
+
 	// OTSProof is a base64 OpenTimestamps proof over the log head. It is what
 	// establishes that the commitments predate the beacon round to someone who
 	// does not trust the operator's clock.
@@ -264,18 +274,9 @@ func Verify(b Bundle, chain beacon.Chain) Report {
 		logCovers(b.Log.Records, p, rc, head, b.Log.Head),
 		"%d record(s)", len(b.Log.Records))
 
-	// --- what is not checked here -----------------------------------------
+	// --- the public anchor -------------------------------------------------
 
-	if b.Roster.OTSProof == "" {
-		rep.skip("log head timestamped before the beacon round",
-			"no OTS proof in bundle; the operator's clock is taken on trust")
-	} else {
-		rep.skip("log head timestamped before the beacon round",
-			"OTS proof present (%d bytes) — verify separately with: ots verify", len(b.Roster.OTSProof))
-	}
-
-	rep.skip("this draw was not abandoned and retried",
-		"answerable only against the full public log, not from one bundle")
+	verifyRekor(&rep, b, chain)
 
 	rep.OK = true
 	for _, c := range rep.Checks {
@@ -284,6 +285,106 @@ func Verify(b Bundle, chain beacon.Chain) Report {
 		}
 	}
 	return rep
+}
+
+// verifyRekor checks the anchor that publishes this draw's log head into
+// Sigstore's Rekor, and reports what it does and does not establish.
+func verifyRekor(rep *Report, b Bundle, chain beacon.Chain) {
+	a := b.Roster.RekorAnchor
+	if a == nil {
+		rep.skip("log head published to a log the organiser does not control",
+			"no Rekor anchor in this bundle; the local chain rests on the operator's own publication")
+		rep.skip("this draw was not abandoned and retried",
+			"without an anchor, answerable only against the organiser's own log")
+		return
+	}
+
+	if err := a.VerifyInclusion(); err != nil {
+		rep.add("rekor inclusion proof verifies", false, "%v", err)
+	} else {
+		cp, _ := a.ParseCheckpoint()
+		rep.add("rekor inclusion proof verifies", true,
+			"%s index %d of %d", cp.Origin, a.LogIndex, a.TreeSize)
+	}
+
+	// The anchor covers the head as it stood when it was published, which is
+	// not the head at the end of the draw — the result record comes later and
+	// moves it. So the question is not "does this equal the final head" but
+	// "is this a head this chain actually passed through, and had the roster
+	// been committed by then".
+	covered, phase := anchoredRecord(a, b)
+	switch {
+	case covered < 0:
+		rep.add("anchor binds a head from this draw's log", false,
+			"the anchored payload is not any head in this chain")
+	case phase == "":
+		rep.add("anchor binds a head from this draw's log", false,
+			"anchored at record %d, before the roster was committed", covered)
+	default:
+		rep.add("anchor binds a head from this draw's log", true,
+			"record %d, immediately after %s", covered, phase)
+	}
+
+	// Witness times are the only clock Rekor v2 offers — integratedTime is
+	// always zero. They are surfaced because an upper bound on when the head
+	// existed is exactly what the ordering argument needs, and reported as
+	// observed because verifying them needs the witnesses' own keys.
+	cp, err := a.ParseCheckpoint()
+	if err != nil {
+		rep.add("checkpoint parses", false, "%v", err)
+		return
+	}
+	at, ok := cp.EarliestCosignature()
+	roundAt := chain.TimeOf(b.Draw.Params.TargetRound)
+	if idx, phase := anchoredRecord(a, b); idx < 0 || phase == "" {
+		rep.skip("log head witnessed before the beacon round",
+			"the anchored head predates the roster commitment, so its time bounds nothing")
+		rep.skip("this draw was not abandoned and retried",
+			"the anchor does not cover this draw's roster commitment")
+		return
+	}
+	switch {
+	case !ok:
+		rep.skip("log head witnessed before the beacon round",
+			"checkpoint carries no witness cosignatures")
+	case at.Before(roundAt):
+		rep.skip("log head witnessed before the beacon round",
+			"%d witness(es), earliest %s, %ds before round %d — signatures not verified here",
+			len(cp.Cosignatures()), at.UTC().Format(time.RFC3339),
+			int64(roundAt.Sub(at).Seconds()), b.Draw.Params.TargetRound)
+	default:
+		rep.add("log head witnessed before the beacon round", false,
+			"earliest witness %s is after round %d published",
+			at.UTC().Format(time.RFC3339), b.Draw.Params.TargetRound)
+	}
+
+	rep.skip("this draw was not abandoned and retried",
+		"the anchor puts this draw on a public log; deciding it was the only one needs that log scanned for %s",
+		a.AnchorKey[:16]+"…")
+}
+
+// anchoredRecord finds which log record's head was anchored, and reports the
+// phase it covers. It returns -1 if the anchored payload is not a head this
+// chain ever had, and an empty phase if the roster had not been committed by
+// that point — an anchor from before the entry list was frozen says nothing
+// about when the list was frozen.
+func anchoredRecord(a *rekor.Anchor, b Bundle) (int, string) {
+	committedBy := -1
+	for i, r := range b.Log.Records {
+		if r.DrawID == b.Draw.Params.DrawID && r.Kind == translog.KindRosterCommitted {
+			committedBy = i
+		}
+	}
+	for i, r := range b.Log.Records {
+		if !a.BindsPayload(r.Head[:]) {
+			continue
+		}
+		if committedBy < 0 || i < committedBy {
+			return i, ""
+		}
+		return i, string(b.Log.Records[i].Kind)
+	}
+	return -1, ""
 }
 
 func winnersAtIndex(b Bundle) bool {

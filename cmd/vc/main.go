@@ -9,6 +9,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/ed25519"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
@@ -22,6 +23,7 @@ import (
 	"github.com/sharkfin009/verifiable-challenge/beacon"
 	"github.com/sharkfin009/verifiable-challenge/bundle"
 	"github.com/sharkfin009/verifiable-challenge/httpapi"
+	"github.com/sharkfin009/verifiable-challenge/rekor"
 	"github.com/sharkfin009/verifiable-challenge/roster"
 	"github.com/sharkfin009/verifiable-challenge/service"
 	"github.com/sharkfin009/verifiable-challenge/translog"
@@ -34,6 +36,7 @@ organiser:
   vc create  -title T [-winners N] [-disclosure public|private] -open 10m
   vc enter   -draw ID (-label L | -file FILE) [-salts FILE]
   vc leaves  -draw ID
+  vc anchor  [-draw ID]                      publish the log head to Rekor
   vc commit  -draw ID
   vc run     -draw ID [-wait]
   vc receipt -draw ID -index N [-out FILE]
@@ -51,8 +54,9 @@ global:
 `
 
 var (
-	dirFlag = flag.String("dir", "vcdata", "service directory")
-	keyFlag = flag.String("key", "", "operator key file")
+	dirFlag   = flag.String("dir", "vcdata", "service directory")
+	keyFlag   = flag.String("key", "", "operator key file")
+	rekorFlag = flag.String("rekor", rekor.DefaultEndpoint, "Rekor endpoint, or empty to disable anchoring")
 )
 
 func main() {
@@ -63,6 +67,7 @@ func main() {
 	global.SetOutput(io.Discard)
 	global.StringVar(dirFlag, "dir", *dirFlag, "service directory")
 	global.StringVar(keyFlag, "key", *keyFlag, "operator key file")
+	global.StringVar(rekorFlag, "rekor", *rekorFlag, "Rekor endpoint")
 	_ = global.Parse(os.Args[1:])
 
 	args := global.Args()
@@ -81,6 +86,8 @@ func main() {
 		err = cmdCreate(rest)
 	case "enter":
 		err = cmdEnter(rest)
+	case "anchor":
+		err = cmdAnchor(rest)
 	case "leaves":
 		err = cmdLeaves(rest)
 	case "commit":
@@ -115,6 +122,11 @@ func main() {
 type keyFile struct {
 	PublicKey  string `json:"public_key"`
 	PrivateKey string `json:"private_key"`
+
+	// AnchorKey is an ECDSA P-256 key used only for Rekor submissions. It is
+	// a second key rather than the operator key because Rekor's hashedrekord
+	// type signs a digest and rejects Ed25519.
+	AnchorKey string `json:"anchor_key,omitempty"`
 }
 
 func keyPath() string {
@@ -133,7 +145,19 @@ func openService() (*service.Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return service.New(*dirFlag, "vc/log/"+kf.PublicKey[:16], ed25519.PrivateKey(priv))
+	opts := []service.Option{}
+	if kf.AnchorKey != "" {
+		der, err := hex.DecodeString(kf.AnchorKey)
+		if err != nil {
+			return nil, fmt.Errorf("anchor key hex: %w", err)
+		}
+		ak, err := x509.ParseECPrivateKey(der)
+		if err != nil {
+			return nil, fmt.Errorf("anchor key: %w", err)
+		}
+		opts = append(opts, service.WithRekor(rekor.New(*rekorFlag), ak))
+	}
+	return service.New(*dirFlag, "vc/log/"+kf.PublicKey[:16], ed25519.PrivateKey(priv), opts...)
 }
 
 func cmdKeygen(args []string) error {
@@ -145,6 +169,14 @@ func cmdKeygen(args []string) error {
 	if err != nil {
 		return err
 	}
+	anchor, err := rekor.GenerateKey()
+	if err != nil {
+		return err
+	}
+	anchorDER, err := x509.MarshalECPrivateKey(anchor)
+	if err != nil {
+		return err
+	}
 	if err := os.MkdirAll(*dirFlag, 0o755); err != nil {
 		return err
 	}
@@ -152,10 +184,16 @@ func cmdKeygen(args []string) error {
 	if path == "" {
 		path = keyPath()
 	}
-	if err := writeJSON(path, keyFile{hex.EncodeToString(pub), hex.EncodeToString(priv)}, 0o600); err != nil {
+	kf := keyFile{
+		PublicKey:  hex.EncodeToString(pub),
+		PrivateKey: hex.EncodeToString(priv),
+		AnchorKey:  hex.EncodeToString(anchorDER),
+	}
+	if err := writeJSON(path, kf, 0o600); err != nil {
 		return err
 	}
 	fmt.Printf("operator public key  %s\n", hex.EncodeToString(pub))
+	fmt.Printf("anchor key           ecdsa p-256, for Rekor submissions\n")
 	fmt.Printf("written to           %s (mode 0600)\n", path)
 	return nil
 }
@@ -298,6 +336,58 @@ func cmdLeaves(args []string) error {
 	return nil
 }
 
+// cmdAnchor publishes the current transparency-log head to Sigstore's Rekor.
+//
+// Anchoring is what makes the local chain mean anything to someone who was not
+// watching: a hash chain nobody witnessed can simply be rebuilt, but an entry
+// in a public append-only log cannot be withdrawn.
+func cmdAnchor(args []string) error {
+	fs := newFlags("anchor", args)
+	id := fs.String("draw", "", "record this anchor as the one covering this draw")
+	parse(fs, args)
+
+	svc, err := openService()
+	if err != nil {
+		return err
+	}
+	if !svc.AnchorsEnabled() {
+		return fmt.Errorf("anchor: no anchor key in %s (regenerate with: vc keygen)", keyPath())
+	}
+
+	head := svc.Log().Head()
+	fmt.Printf("publishing log head %s…\n", head.String()[:16])
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	a, err := svc.AnchorHead(ctx)
+	if err != nil {
+		return err
+	}
+	cp, err := a.ParseCheckpoint()
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("\n%s\n", cp.Origin)
+	fmt.Printf("  index      %d of %d\n", a.LogIndex, a.TreeSize)
+	fmt.Printf("  inclusion  proof verifies locally\n")
+	for _, c := range cp.Cosignatures() {
+		fmt.Printf("  witness    %-48s %s\n", c.Witness, c.At.Format(time.RFC3339))
+	}
+	if len(cp.Cosignatures()) > 0 {
+		fmt.Printf("\nWitness times are not verified here — doing so needs each witness's key\n")
+		fmt.Printf("and a policy for how many must agree. Rekor v2 has no other clock.\n")
+	}
+
+	if *id != "" {
+		if err := svc.SetAnchoredHead(*id, head); err != nil {
+			return err
+		}
+		fmt.Printf("\nrecorded as the anchor for draw %s\n", *id)
+	}
+	return nil
+}
+
 func cmdCommit(args []string) error {
 	fs := newFlags("commit", args)
 	id := fs.String("draw", "", "draw id")
@@ -318,6 +408,28 @@ func cmdCommit(args []string) error {
 	fmt.Printf("commit     %s\n", st.RosterCommit.Commit)
 	fmt.Printf("log head   %s\n", svc.Log().Head())
 	fmt.Printf("draws at   round %d, in %s\n", st.Params.TargetRound, time.Until(target).Truncate(time.Second))
+	if svc.AnchorsEnabled() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		head := svc.Log().Head()
+		if a, aerr := svc.AnchorHead(ctx); aerr != nil {
+			// Not fatal. A draw with no anchor is still a valid draw; it just
+			// rests more on the organiser's own word, and verification says so.
+			fmt.Printf("rekor      anchoring failed: %v\n", aerr)
+		} else {
+			if err := svc.SetAnchoredHead(*id, head); err != nil {
+				return err
+			}
+			cp, _ := a.ParseCheckpoint()
+			at, ok := cp.EarliestCosignature()
+			fmt.Printf("rekor      %s index %d", cp.Origin, a.LogIndex)
+			if ok {
+				fmt.Printf(", witnessed %s", at.Format(time.RFC3339))
+			}
+			fmt.Println()
+		}
+	}
+
 	fmt.Printf("\nThe entry list is now frozen and the randomness does not exist yet.\n")
 	fmt.Printf("Timestamp the log head to prove that to someone who distrusts your clock:\n")
 	fmt.Printf("  echo -n %s | xxd -r -p > log.head && ots stamp log.head\n", svc.Log().Head())
@@ -575,6 +687,7 @@ func newFlags(name string, _ []string) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ExitOnError)
 	fs.StringVar(dirFlag, "dir", *dirFlag, "service directory")
 	fs.StringVar(keyFlag, "key", *keyFlag, "operator key file")
+	fs.StringVar(rekorFlag, "rekor", *rekorFlag, "Rekor endpoint")
 	return fs
 }
 

@@ -1,0 +1,139 @@
+{
+  "version": 1,
+  "operator_pubkey": "08242150ae376eee9bd8570de5533e15f56560fa7adb5e7ff1ba24c3a5bc4e76",
+  "draw": {
+    "params": {
+      "draw_id": "7319d3c674eb960adfc4f1f0501358fe",
+      "title": "Anchored grant draw",
+      "winners": 2,
+      "disclosure": "private",
+      "cutoff_at": 1789980519,
+      "target_round": 32392391,
+      "chain_hash": "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971",
+      "created_at": 1789980499
+    },
+    "signature": "0f0652f03ee35ae9c45d3cbee5c6ccb109c44d5ee969c00cf2154547e821d8150b0b461e4a7994b63533d0c6ca0e2326bcfc43a7666a25cdce0a32de22c5090d"
+  },
+  "roster": {
+    "commitment": {
+      "draw_id": "7319d3c674eb960adfc4f1f0501358fe",
+      "root": "273b28154569f2808faeded519c7467d2a319a6af309d40e33023ef74faf97d6",
+      "size": 6,
+      "commit": "c1be51b4d0b5b20705b8394e047bdf317270b0ab87dac963d373c640fb0c4743",
+      "committed_at": 1789980522
+    },
+    "signature": "db2cb33f493ff8b2a4721685754542564316766508136560b509241760331fc11d5600de617f59b47edeb6131f5ff27a4c5ff02a86ad062a69585f4531495800",
+    "leaves": [
+      "c98d9db65c228b69c087b8f85ff1d5b7ff537e14bb1de3c455f8d3ad0b8f1f88",
+      "a8bacc9e060edb3e5704f2060f54c25a302395339f646cac77d7138a0246c295",
+      "9b3b3e055958442648ed66e5c2e819a6f2c8c6ff35f87fb187304a465afdbec5",
+      "983e2ade1184511d64793aa2a1aab55938fa8d94b84fbd024f93e4025217fe20",
+      "117bad509b709ec92360bc58aa25e45382472023709a6db52d11656874ba3075",
+      "7adbe3daeb966f313ea1013266d7cc0bba20b9c8a18599ac1dd55050757ec7a5"
+    ],
+    "rekor_anchor": {
+      "payload": "0aL+x+8OAmBuHlQNxPLwyiJwh5U80KZ0ve2PjlBy2bg=",
+      "log_index": 119221787,
+      "tree_size": 119221840,
+      "root_hash": "aRig/uika3QqlCfi6kglyyFShmTMpT3TGcqUu55n4rY=",
+      "hashes": [
+        "6QvFZ77FSjqO53/+ziXNnlUBnJJEP9kr2sUYhq4kqqQ=",
+        "TDQXyFAQ+cU6fJZmgsO679BWnXYjXdmfWgxqeikOcWU=",
+        "pGK7BdFQMNaV455ERqpD49IGiehNCKfBl2UaJudyLeY=",
+        "4XCes0ZKGy/dlYZE7JlxDpE3RP5dhRMlugJZTafwcig=",
+        "4fLFFC+7tSiEioT3jz+UAZ9Ml0YhTI+pPP/cWq1i24Y=",
+        "kVPKtlDSOFjcdNI/LUVqpIOTFS3v7BMVfOs8GzZe3NQ=",
+        "AU17S8wFZqg7ajQhDrOxVGUEf+tkKjvWOPRP9RzrN8s=",
+        "7SjyT+RAeUyMwUuHZ2SuMYlE32SmIF4RxjfG8hdo3dw=",
+        "QhwuZ0v4gCNN494m01xlbP9jQkduC56JehoPOZ9AiqA=",
+        "1rK9Iifx74+SX0F/y4nGouwpaUWLmM44zSAD4KHI+KQ=",
+        "J7zYfhZSvTQTiO+U9uBSIThZeU3RXZHm+GE8WFi8Zbg=",
+        "1e/aTNteVQHnBEOun19x8e+mGLZfYa6XrJNT3U4nprY=",
+        "ye1hSB7Ztzjzhfp/pYl/Uxv6dLNVhqmGYxI0VvRbIf4=",
+        "77XDITNI4hh9+vzK6akSRLSQGhG4i34UKKMVBZvlmHo=",
+        "h4IGGpxnFA+17fo7L8D97W5HOZa7vxRlXkQAUOUf89U=",
+        "TzDfMAb31enjsbrBf5dkh1XGsz3f5ju10xUa1KBxSjk=",
+        "DECASkV0PLAoTmCeGsJLmGUoDnCLklA8TLwgwSRKqR4=",
+        "sDYoZXiXRY28yAw+Ct6svsySOEvSboUP6XGd0w9Avn8="
+      ],
+      "checkpoint": "log2025-1.rekor.sigstore.dev\n119221840\naRig/uika3QqlCfi6kglyyFShmTMpT3TGcqUu55n4rY=\n\n— log2025-1.rekor.sigstore.dev zxGZFWTYvBPVFCZ3waKQgbFbDfoJZPaLAiNss30F77wePAD8JCI1/APsoyx23qRaP4Jeh1dkak0aLEqwZRJf7+ghXAY=\n— witness.navigli.sunlight.geomys.org o+AP4gAAAABqsO9tCzzWi9vL688BRfnfxrbfTZDLPqQVuxlyk827eHRCPxIvGU3f2596lmIk0Tpa266fg/SNUKPfuxnYjQioc3NVBg==\n— staging.witness.transparency.goog/ring-any-bells LhqNyQAAAABqsO9tTuB3nP2IZD6M+wavjKNhZxXQ8vNWTL8A3OcA9eR5MyaGCO3sJpQRBmAswH4OD0vq5DhCFqPqnbOdyUtuzJVxBw==\n— witness.stagemole.eu Z/euoAAAAABqsO9tNGRhW6KZpc+PzeFBqqc6MMIvxbmO6OC3hkhOlvwk4tjW205kDnMwztb3PKxIoFK3GTU55D1SvNLpWdzlxgv3CQ==\n",
+      "body": "eyJhcGlWZXJzaW9uIjoiMC4wLjIiLCJraW5kIjoiaGFzaGVkcmVrb3JkIiwic3BlYyI6eyJoYXNoZWRSZWtvcmRWMDAyIjp7ImRhdGEiOnsiYWxnb3JpdGhtIjoiU0hBMl8yNTYiLCJkaWdlc3QiOiIrQnFSb2tMM080YWh2Sm9xdkFkQnJtUVJCS2FpdGZORGlkcktEUlcwYTRFPSJ9LCJzaWduYXR1cmUiOnsiY29udGVudCI6Ik1FWUNJUUNadDdHQk05ODNlT3RaK0MzNXFtTVZTVnpVK25hT0kzVndtUGxsL095eW1nSWhBSXUzMkNhSFVwY29qdlF3bHdtbm5RZVUrcVZmS2U5QUNYQkM3VVpJbEFkWiIsInZlcmlmaWVyIjp7ImtleURldGFpbHMiOiJQS0lYX0VDRFNBX1AyNTZfU0hBXzI1NiIsInB1YmxpY0tleSI6eyJyYXdCeXRlcyI6Ik1Ga3dFd1lIS29aSXpqMENBUVlJS29aSXpqMERBUWNEUWdBRUJTSXZVbjZqejFQT0FITFNHNUprTkpkc0NrY09YUVBtc0NIRHV3UXhYbnB3S0N0MEFEamxxdjc2bFppdmdPRGJtZ1c1OC9XWjBsVFZvYVBEVHNack13PT0ifX19fX19",
+      "anchor_key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEBSIvUn6jz1POAHLSG5JkNJdsCkcOXQPmsCHDuwQxXnpwKCt0ADjlqv76lZivgODbmgW58/WZ0lTVoaPDTsZrMw==",
+      "submitted_at": 1789980526
+    }
+  },
+  "beacon": {
+    "round": 32392391,
+    "signature": "abd9932162339de4c812a22a72725c62627c967ddbea058d6719672b49c24facb2306c585b57f8079148d84daaf27478"
+  },
+  "result": {
+    "seed": "57b961f8795d37e104a94f2d2a8560ea7370486f398666cd5de9056b1581d965",
+    "winners": [
+      {
+        "rank": 1,
+        "index": 2,
+        "salt": "9fc33199218ce5668e61a5dcf589db37685c6bebcaded234bb701d094146e4cb",
+        "entry": {
+          "label": "carol"
+        },
+        "merkle_path": [
+          "983e2ade1184511d64793aa2a1aab55938fa8d94b84fbd024f93e4025217fe20",
+          "573c55a29132d468d4b591317fa660ab4cb4296c22ecc203bc80d5de038ea9a6",
+          "1308cb15db651fe664d8df5c651549c0ab2f28b797167a4acdc02c10d0a2f544"
+        ]
+      },
+      {
+        "rank": 2,
+        "index": 1,
+        "salt": "1c7157bf61650831de5007e05effd41cd7a621c1402920a797939efd98053923",
+        "entry": {
+          "label": "bob"
+        },
+        "merkle_path": [
+          "c98d9db65c228b69c087b8f85ff1d5b7ff537e14bb1de3c455f8d3ad0b8f1f88",
+          "e4cb89020c7c5dc57f605b4b4cc3809d2361d95d005e9d8ec9d5c4a152a47672",
+          "1308cb15db651fe664d8df5c651549c0ab2f28b797167a4acdc02c10d0a2f544"
+        ]
+      }
+    ],
+    "waitlist": [
+      4,
+      5,
+      0,
+      3
+    ]
+  },
+  "log": {
+    "log_id": "vc/log/08242150ae376eee",
+    "records": [
+      {
+        "seq": 0,
+        "kind": "draw_created",
+        "draw_id": "7319d3c674eb960adfc4f1f0501358fe",
+        "payload": "d8ffbebaad3ad002aa0995917d61aa9c0353cdac4acc91852f79b3b303a2c3bb",
+        "logged_at": 1789980499,
+        "prev": "27fa3d1e4b06b70ac6a043c8d4a9c7d549ab884c4407e4d7bac3229987586fed",
+        "head": "af216729e3947094286043534d89e1eecdd811d2cab61c4d8f77f94f283c9ca1"
+      },
+      {
+        "seq": 1,
+        "kind": "roster_committed",
+        "draw_id": "7319d3c674eb960adfc4f1f0501358fe",
+        "payload": "9bdece288badb28f33fc6b68d397cbcf2b871960ac30745131609fd6a884f4ef",
+        "logged_at": 1789980522,
+        "prev": "af216729e3947094286043534d89e1eecdd811d2cab61c4d8f77f94f283c9ca1",
+        "head": "d1a2fec7ef0e02606e1e540dc4f2f0ca227087953cd0a674bded8f8e5072d9b8"
+      },
+      {
+        "seq": 2,
+        "kind": "result_published",
+        "draw_id": "7319d3c674eb960adfc4f1f0501358fe",
+        "payload": "57b961f8795d37e104a94f2d2a8560ea7370486f398666cd5de9056b1581d965",
+        "logged_at": 1789980540,
+        "prev": "d1a2fec7ef0e02606e1e540dc4f2f0ca227087953cd0a674bded8f8e5072d9b8",
+        "head": "2ab294a7263514e9f8e706335eaca29e9bd01eea8b64f04d0dc8d9293e6b83ce"
+      }
+    ],
+    "head": "2ab294a7263514e9f8e706335eaca29e9bd01eea8b64f04d0dc8d9293e6b83ce"
+  }
+}

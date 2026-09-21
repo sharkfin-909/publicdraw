@@ -14,6 +14,14 @@ import { leafHash, verifyPath, rootFromLeaves } from './merkle'
 import { rosterCommitValue, seed, select, paramsSigningBytes, rosterSigningBytes } from './draw'
 import { replay } from './translog'
 import { QUICKNET, randomnessOf, timeOfRound, verifyRound } from './beacon'
+import {
+  bindsPayload,
+  cosignatures,
+  earliestCosignature,
+  parseCheckpoint,
+  verifyInclusion,
+  type Anchor,
+} from './rekor'
 import type { Bundle } from './types'
 
 /** Minimum gap between cutoff and target round, matching draw.MinLead in Go. */
@@ -277,19 +285,112 @@ export function verifyBundle(b: Bundle): Report {
 
   // --- what cannot be answered from one bundle -----------------------------
 
-  skip(
-    'log head timestamped before the beacon round',
-    b.roster.ots_proof
-      ? `OTS proof present (${b.roster.ots_proof.length} bytes) — verify separately`
-      : "no OTS proof in bundle; the operator's clock is taken on trust",
-  )
-  skip(
-    'this draw was not abandoned and retried',
-    'answerable only against the full public log, not from one bundle',
-  )
+  verifyAnchor(b, add, skip)
 
   const skipped = checks.filter((c) => c.skipped).length
   return { ok: checks.every((c) => c.ok || c.skipped), skipped, checks }
+}
+
+/**
+ * Find which log record's head was anchored, and the phase it covers.
+ *
+ * The anchor is published when the roster is frozen, so it covers the head as
+ * it stood then — not the head at the end of the draw, which the result record
+ * moves. The question is therefore not "does this equal the final head" but
+ * "is this a head the chain passed through, and had the roster been committed
+ * by that point".
+ */
+function anchoredRecord(a: Anchor, b: Bundle): { index: number; phase: string } {
+  let committedBy = -1
+  for (let i = 0; i < b.log.records.length; i++) {
+    const r = b.log.records[i]!
+    if (r.draw_id === b.draw.params.draw_id && r.kind === 'roster_committed') committedBy = i
+  }
+  for (let i = 0; i < b.log.records.length; i++) {
+    if (!bindsPayload(a, b.log.records[i]!.head)) continue
+    if (committedBy < 0 || i < committedBy) return { index: i, phase: '' }
+    return { index: i, phase: b.log.records[i]!.kind }
+  }
+  return { index: -1, phase: '' }
+}
+
+function verifyAnchor(
+  b: Bundle,
+  add: (n: string, ok: boolean, d: string) => void,
+  skip: (n: string, d: string) => void,
+) {
+  const a = b.roster.rekor_anchor
+  if (!a) {
+    skip(
+      'log head published to a log the organiser does not control',
+      "no Rekor anchor in this bundle; the local chain rests on the operator's own publication",
+    )
+    skip(
+      'this draw was not abandoned and retried',
+      "without an anchor, answerable only against the organiser's own log",
+    )
+    return
+  }
+
+  const inc = verifyInclusion(a)
+  const cp = parseCheckpoint(a.checkpoint)
+  add(
+    'rekor inclusion proof verifies',
+    inc.ok,
+    inc.ok && cp ? `${cp.origin} index ${a.log_index} of ${a.tree_size}` : (inc.error ?? 'invalid'),
+  )
+
+  const { index, phase } = anchoredRecord(a, b)
+  if (index < 0) {
+    add('anchor binds a head from this draw\u2019s log', false, 'the anchored payload is not any head in this chain')
+  } else if (!phase) {
+    add(
+      'anchor binds a head from this draw\u2019s log',
+      false,
+      `anchored at record ${index}, before the roster was committed`,
+    )
+  } else {
+    add('anchor binds a head from this draw\u2019s log', true, `record ${index}, immediately after ${phase}`)
+  }
+
+  if (!cp) {
+    add('checkpoint parses', false, 'malformed checkpoint')
+    return
+  }
+
+  // Witness times are the only clock Rekor v2 offers — integratedTime is
+  // always zero. Reported as observed, never as verified: checking them needs
+  // each witness's key and a policy for how many must agree.
+  const roundAt = timeOfRound(b.draw.params.target_round)
+  if (index < 0 || !phase) {
+    skip(
+      'log head witnessed before the beacon round',
+      'the anchored head predates the roster commitment, so its time bounds nothing',
+    )
+    skip('this draw was not abandoned and retried', "the anchor does not cover this draw's roster commitment")
+    return
+  }
+  const at = earliestCosignature(cp)
+  if (!at) {
+    skip('log head witnessed before the beacon round', 'checkpoint carries no witness cosignatures')
+  } else if (at < roundAt) {
+    const gap = Math.round((roundAt.getTime() - at.getTime()) / 1000)
+    skip(
+      'log head witnessed before the beacon round',
+      `${cosignatures(cp).length} witness(es), earliest ${at.toISOString()}, ${gap}s before round ${b.draw.params.target_round} — signatures not verified here`,
+    )
+  } else {
+    add(
+      'log head witnessed before the beacon round',
+      false,
+      `earliest witness ${at.toISOString()} is after round ${b.draw.params.target_round} published`,
+    )
+  }
+
+  skip(
+    'this draw was not abandoned and retried',
+    `the anchor puts this draw on a public log; deciding it was the only one needs that log scanned for ${a.anchor_key.slice(0, 16)}\u2026`,
+  )
 }
 
 /**

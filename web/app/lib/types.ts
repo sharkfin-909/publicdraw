@@ -76,6 +76,12 @@ export interface Bundle {
      */
     leaves: string[]
     entries?: Sealed[]
+    /**
+     * Publishes the transparency-log head into Sigstore's Rekor, a public
+     * append-only log the organiser does not run. Absent on draws that were
+     * never anchored, in which case verification says so rather than passing.
+     */
+    rekor_anchor?: import('./rekor').Anchor
     ots_proof?: string
   }
   beacon: BeaconRound

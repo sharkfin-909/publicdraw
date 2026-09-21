@@ -130,15 +130,43 @@ the attack can appear at all.
 Same shape as Certificate Transparency: the answer to invisible misissuance is
 to make the *set* of commitments public and append-only.
 
+## Anchoring the log
+
+A hash chain only bites once someone has seen a head. Left to itself the log
+rests on the organiser having published it honestly — which is the thing under
+question.
+
+So `vc commit` publishes the head to **Sigstore's Rekor**, a public
+append-only log the organiser does not run, and keeps the inclusion proof in
+the bundle. Verification recomputes the proof (RFC 6962) and checks it lands on
+the root the log's signed checkpoint carries.
+
+```sh
+vc anchor -draw ID      # publish the current head by hand
+```
+
+Rekor v2's `integratedTime` is always 0 — it is not a timestamp authority. Time
+comes from the **witness cosignatures** on the checkpoint: several independent
+operators countersign the tree head with the moment they saw it. `vc verify`
+surfaces those and marks them `SKIP`, because verifying them needs each
+witness's key and a policy for how many must agree. An observed time from three
+independent witnesses is worth showing; it is not worth calling proven.
+
+The anchor is a second key: ECDSA P-256, because Rekor's `hashedrekord` type
+signs a digest and rejects Ed25519 outright. The two keys have different jobs —
+the Ed25519 operator key signs what the organiser commits to, and this one only
+says "these bytes were published".
+
 ## What is not proven
 
 Stated plainly, because someone will find these otherwise:
 
 - **Roster stuffing.** Receipts catch an entrant being dropped. They do not
   catch a roster padded with entries that were never real.
-- **The operator's clock.** Timestamps are the operator's word until the log
-  head is anchored with OpenTimestamps. `vc verify` reports that check as
-  `SKIP`, never as a pass.
+- **The operator's clock.** Timestamps are the operator's word. Anchoring into
+  Rekor narrows this — three independent witnesses countersign the tree head
+  with a time — but those cosignatures are not verified here, so the check
+  stays `SKIP` rather than passing.
 - **Retries**, from a single bundle. That question is answerable only against
   the full public log, and is also reported as `SKIP`.
 
