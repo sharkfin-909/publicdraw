@@ -305,6 +305,35 @@ func (s *Service) CommitRoster(id string) (*Stored, error) {
 	return st, nil
 }
 
+// Proof returns the public half of a receipt for one index: the root, the
+// size and the Merkle path, with no salt and no label. It is what the HTTP
+// API serves, because everything omitted here is already held by the entrant
+// and serving it back would disclose the roster to anyone who asked.
+func (s *Service) Proof(id string, index int) (roster.Proof, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	st, err := s.load(id)
+	if err != nil {
+		return roster.Proof{}, err
+	}
+	if st.RosterCommit == nil {
+		return roster.Proof{}, fmt.Errorf("service: draw %s has no committed roster yet", id)
+	}
+	r, err := roster.Load(st.Sealed)
+	if err != nil {
+		return roster.Proof{}, err
+	}
+	_, path, err := r.Open(index)
+	if err != nil {
+		return roster.Proof{}, err
+	}
+	return roster.Proof{
+		DrawID: id, Root: st.RosterCommit.Root, Size: st.RosterCommit.Size,
+		Index: index, MerklePath: path,
+	}, nil
+}
+
 // Receipt issues one entrant their proof of inclusion. Available only once the
 // roster is committed, because the root does not exist before that.
 func (s *Service) Receipt(id string, index int) (roster.Receipt, error) {

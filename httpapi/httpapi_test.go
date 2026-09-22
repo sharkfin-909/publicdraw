@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -133,13 +134,16 @@ func TestFullLifecycleOverHTTP(t *testing.T) {
 		t.Fatal("an entrant could not find their own leaf in the published list")
 	}
 
-	var rec roster.Receipt
-	if code := e.do(t, "GET", "/v1/draws/"+id+"/receipt/3", nil, &rec); code != http.StatusOK {
-		t.Fatalf("receipt returned %d", code)
+	var pr roster.Proof
+	if code := e.do(t, "GET", "/v1/draws/"+id+"/proof/3", nil, &pr); code != http.StatusOK {
+		t.Fatalf("proof returned %d", code)
 	}
-	salt := mustHex(t, rec.Salt)
-	if !roster.VerifyReceipt(rec, salt) {
-		t.Fatal("receipt served over HTTP does not verify")
+	// The entrant supplies salt and label themselves; the server supplies only
+	// the path. Salts come from the entry response, which is the one place
+	// they are ever served.
+	third := entered.Admitted[3]
+	if !roster.VerifyProof(pr, third.Salt, third.Label) {
+		t.Fatal("proof served over HTTP does not verify against the entrant's own salt")
 	}
 
 	*e.now = time.Unix(tRound+6, 0)
@@ -150,8 +154,8 @@ func TestFullLifecycleOverHTTP(t *testing.T) {
 	if !bundle.Verify(b, beacon.Quicknet).OK {
 		t.Fatal("bundle returned over HTTP does not verify")
 	}
-	if rec.Root != b.Roster.Commitment.Root {
-		t.Fatal("the receipt's root is not the roster the winners came from")
+	if pr.Root != b.Roster.Commitment.Root {
+		t.Fatal("the proof's root is not the roster the winners came from")
 	}
 }
 
@@ -211,6 +215,28 @@ func TestHTTPNeverServesSaltsForAPrivateDraw(t *testing.T) {
 		if bytes.Contains(bytes.ToLower(body), []byte(leak)) {
 			t.Fatalf("private draw response leaked %q: %s", leak, body)
 		}
+	}
+
+	// And every per-entry endpoint, walked the way an attacker would. The
+	// earlier version of this test stopped at the draw object, so a
+	// /receipt/{index} route that returned salts and labels for any index
+	// went unnoticed: anyone could count from zero and read the whole roster.
+	for i := 0; i < 2; i++ {
+		var p map[string]any
+		if code := e.do(t, "GET", fmt.Sprintf("/v1/draws/%s/proof/%d", id, i), nil, &p); code != http.StatusOK {
+			t.Fatalf("proof %d returned %d", i, code)
+		}
+		pb, _ := json.Marshal(p)
+		for _, leak := range []string{"secret-person", "salt", "label", "entry"} {
+			if bytes.Contains(bytes.ToLower(pb), []byte(leak)) {
+				t.Fatalf("proof %d leaked %q: %s", i, leak, pb)
+			}
+		}
+	}
+
+	// The old route must be gone, not merely unused.
+	if code := e.do(t, "GET", "/v1/draws/"+id+"/receipt/0", nil, nil); code != http.StatusNotFound {
+		t.Fatalf("GET /receipt/0 returned %d, want 404 — that route served salts and labels", code)
 	}
 }
 

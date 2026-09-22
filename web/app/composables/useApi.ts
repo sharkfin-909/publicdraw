@@ -77,7 +77,12 @@ export function useApi() {
         { method: 'POST' },
       ),
 
-    receipt: (id: string, index: number) => call<Receipt>(`/draws/${id}/receipt/${index}`),
+    /**
+     * The path only. Salt and label stay with the entrant, who was given both
+     * once at entry — serving them back disclosed the whole roster to anyone
+     * who counted from zero.
+     */
+    proof: (id: string, index: number) => call<Proof>(`/draws/${id}/proof/${index}`),
 
     run: (id: string) => call<Bundle>(`/draws/${id}/run`, { method: 'POST' }),
 

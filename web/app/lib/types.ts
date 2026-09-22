@@ -89,6 +89,15 @@ export interface Bundle {
   log: { log_id: string; records: LogRecord[]; head: string }
 }
 
+/** The public half of a receipt: no salt, no label. */
+export interface Proof {
+  draw_id: string
+  root: string
+  size: number
+  index: number
+  merkle_path: string[]
+}
+
 export interface Receipt {
   draw_id: string
   root: string

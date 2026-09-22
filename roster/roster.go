@@ -206,6 +206,34 @@ type Receipt struct {
 	MerklePath []hashing.Digest `json:"merkle_path"`
 }
 
+// Proof is the public half of a receipt: everything needed to check one
+// entrant's inclusion, and nothing that identifies them.
+//
+// The salt and the label stay with the entrant, who was given both when they
+// entered. Serving them back is what turned the receipt endpoint into a
+// roster dump: anyone could count from zero and read every name in a draw
+// whose entry list was supposed to be private.
+//
+// Handing out the path is safe. A path that does not climb to the published
+// root fails, so an operator cannot use one to manufacture a false positive
+// for a leaf that was never in the tree. They can withhold or corrupt one,
+// but that is indistinguishable from "you were not in the roster", which is
+// the honest answer to the same question.
+type Proof struct {
+	DrawID     string           `json:"draw_id"`
+	Root       hashing.Digest   `json:"root"`
+	Size       int              `json:"size"`
+	Index      int              `json:"index"`
+	MerklePath []hashing.Digest `json:"merkle_path"`
+}
+
+// VerifyProof checks a leaf the holder computed themselves, from their own
+// salt and label, against a path served by the operator.
+func VerifyProof(p Proof, salt []byte, label string) bool {
+	leaf := merkle.LeafHash(salt, Entry{Label: label}.CanonicalBytes())
+	return merkle.Verify(leaf, p.Index, p.Size, p.MerklePath, p.Root)
+}
+
 // VerifyReceipt checks a receipt against the root it claims membership in.
 func VerifyReceipt(r Receipt, salt []byte) bool {
 	leaf := merkle.LeafHash(salt, r.Entry.CanonicalBytes())

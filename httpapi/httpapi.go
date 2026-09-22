@@ -38,7 +38,7 @@ func New(svc *service.Service) *Server {
 	s.mux.HandleFunc("POST /v1/draws/{id}/entries", s.addEntries)
 	s.mux.HandleFunc("POST /v1/draws/{id}/commit", s.commit)
 	s.mux.HandleFunc("GET /v1/draws/{id}/leaves", s.leaves)
-	s.mux.HandleFunc("GET /v1/draws/{id}/receipt/{index}", s.receipt)
+	s.mux.HandleFunc("GET /v1/draws/{id}/proof/{index}", s.proof)
 	s.mux.HandleFunc("POST /v1/draws/{id}/run", s.run)
 	s.mux.HandleFunc("GET /v1/draws/{id}/bundle", s.getBundle)
 	s.mux.HandleFunc("GET /v1/log", s.getLog)
@@ -255,18 +255,24 @@ func (s *Server) leaves(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) receipt(w http.ResponseWriter, r *http.Request) {
+// proof serves the public half of a receipt only.
+//
+// This replaces a /receipt/{index} endpoint that returned the salt and the
+// label as well, so anyone could walk the indices of a private draw and read
+// the whole entry list. The entrant already holds both — they were handed
+// them when they entered, once.
+func (s *Server) proof(w http.ResponseWriter, r *http.Request) {
 	idx, err := strconv.Atoi(r.PathValue("index"))
 	if err != nil {
 		fail(w, http.StatusBadRequest, errors.New("index must be an integer"))
 		return
 	}
-	rec, err := s.svc.Receipt(r.PathValue("id"), idx)
+	p, err := s.svc.Proof(r.PathValue("id"), idx)
 	if err != nil {
 		svcErr(w, err)
 		return
 	}
-	write(w, http.StatusOK, rec)
+	write(w, http.StatusOK, p)
 }
 
 func (s *Server) run(w http.ResponseWriter, r *http.Request) {

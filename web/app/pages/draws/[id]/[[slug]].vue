@@ -86,8 +86,6 @@ useSeo(() => {
 
 const entriesText = ref('')
 const admitted = ref<Admission[]>([])
-const receiptIndex = ref(0)
-const receiptResult = ref<{ ok: boolean; label: string; root: string } | null>(null)
 
 // The receipt-free inclusion check: an entrant pastes the salt they were given
 // when they entered, and the page looks for their leaf in the published list.
@@ -157,17 +155,6 @@ function runSelfCheck() {
 const commit = () => act('commit', () => api.commit(id.value))
 const run = () => act('run', () => api.run(id.value))
 
-async function getReceipt() {
-  receiptResult.value = null
-  err.value = ''
-  try {
-    const r = await api.receipt(id.value, receiptIndex.value)
-    const { verifyReceipt } = await import('~/lib/verify')
-    receiptResult.value = { ok: verifyReceipt(r), label: r.entry.label, root: r.root }
-  } catch (e) {
-    err.value = errorText(e)
-  }
-}
 
 const cutoffPassed = computed(() =>
   draw.value ? Date.now() / 1000 >= draw.value.params.cutoff_at : false,
@@ -236,7 +223,7 @@ onMounted(() => {
               {{ busy === 'enter' ? 'Adding…' : 'Add entries' }}
             </button>
           </div>
-          <AdmissionList v-if="admitted.length" :admitted="admitted" />
+          <AdmissionList v-if="admitted.length" :admitted="admitted" :draw-id="id" />
         </template>
         <div v-else class="notice" style="margin-top: 10px">
           The cutoff has passed. Entries are closed — freeze the roster to continue.
@@ -348,36 +335,22 @@ onMounted(() => {
         </div>
       </section>
 
-      <!-- Receipts -->
+      <!-- Entrant checks -->
       <section v-if="draw.roster_commit" class="card">
-        <h2>Entrant receipt</h2>
+        <h2>Entrant checks</h2>
         <p class="muted" style="font-size: 0.86rem">
-          A receipt proves one entrant was in the committed roster without revealing anyone else.
-          Check its root against the roster root above — a receipt for a different roster proves
-          nothing about this draw.
+          Each entrant confirms their own inclusion from the link they were given when they
+          entered. Nothing here can look one up for them: the salt that makes a check possible was
+          handed over once, at entry, and is not held on the server — which is also why the entry
+          list of a private draw cannot be read back out of it.
         </p>
-        <div class="row">
-          <input
-            v-model.number="receiptIndex"
-            type="number"
-            min="0"
-            :max="draw.roster_commit.size - 1"
-            style="max-width: 120px"
-          />
-          <button class="ghost" @click="getReceipt">Fetch and check</button>
-        </div>
-        <div v-if="receiptResult" style="margin-top: 12px">
-          <p :style="{ color: receiptResult.ok ? 'var(--seal)' : 'var(--fault)', fontWeight: 600 }">
-            {{ receiptResult.ok ? 'Receipt verifies' : 'Receipt does NOT verify' }} — {{ receiptResult.label }}
-          </p>
-          <p class="hash">root {{ receiptResult.root }}</p>
-          <p
-            v-if="receiptResult.ok && draw.roster_commit && receiptResult.root !== draw.roster_commit.root"
-            class="notice"
-          >
-            This receipt is for a different roster than the one this draw committed to.
-          </p>
-        </div>
+        <p class="hash" style="margin-top: 10px">
+          committed roster {{ draw.roster_commit.root }}
+        </p>
+        <p class="muted" style="font-size: 0.82rem; margin: 8px 0 0">
+          An entrant should check that root against the one on their own result page.
+          <NuxtLink to="/receipt">The check page</NuxtLink> takes their link.
+        </p>
       </section>
     </template>
   </main>

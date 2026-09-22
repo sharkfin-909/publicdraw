@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import type { Admission } from '~/lib/types'
 
-const props = defineProps<{ admitted: Admission[] }>()
+const props = defineProps<{ admitted: Admission[]; drawId: string }>()
+
+const origin = computed(() =>
+  import.meta.client ? location.origin : useRuntimeConfig().public.siteUrl,
+)
+/** The salt rides in the fragment, which browsers never send to a server. */
+const linkFor = (a: Admission) =>
+  `${origin.value}/receipt/${props.drawId}/${a.index}#s=${a.salt}`
 
 const asText = computed(() =>
-  props.admitted.map((a) => `${a.index}\t${a.salt}\t${a.label}`).join('\n'),
+  props.admitted.map((a) => `${a.label}\t${linkFor(a)}`).join('\n'),
 )
 const copied = ref(false)
 
@@ -26,18 +33,18 @@ async function copy() {
       <button class="ghost" @click="copy">{{ copied ? 'Copied' : 'Copy all' }}</button>
     </div>
     <p class="muted why">
-      Give each entrant their index and salt now. It is what lets them confirm their own inclusion
+      Send each entrant their link now. It is what lets them confirm their own inclusion
       after the cutoff, whether or not anything else ever reaches them — an entrant who was quietly
       dropped and never sent a receipt has nothing to notice.
     </p>
     <div class="scroller">
       <table>
-        <thead><tr><th>#</th><th>Salt</th><th>Entry</th></tr></thead>
+        <thead><tr><th>#</th><th>Entry</th><th>Link to send</th></tr></thead>
         <tbody>
           <tr v-for="a in admitted" :key="a.index">
             <td class="mono">{{ a.index }}</td>
-            <td class="hash">{{ a.salt }}</td>
-            <td>{{ a.label }}</td>
+              <td>{{ a.label }}</td>
+              <td class="hash">{{ linkFor(a) }}</td>
           </tr>
         </tbody>
       </table>

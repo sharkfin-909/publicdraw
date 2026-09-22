@@ -412,6 +412,27 @@ export function findOwnLeaf(
   }
 }
 
+/**
+ * Check an inclusion proof against a salt and label the entrant holds.
+ *
+ * The operator supplies only the path. A path that does not climb to the
+ * published root fails, so this cannot be made to return true for a leaf that
+ * was never in the tree — the operator can withhold a proof, but cannot forge
+ * one.
+ */
+export function verifyProof(
+  p: { root: string; size: number; index: number; merkle_path: string[] },
+  saltHex: string,
+  label: string,
+): boolean {
+  try {
+    const leaf = leafHash(fromHex(saltHex), canonicalEntryBytes(label))
+    return verifyPath(leaf, p.index, p.size, p.merkle_path.map(fromHex), fromHex(p.root))
+  } catch {
+    return false
+  }
+}
+
 /** Check one entrant's receipt against the root it claims membership in. */
 export function verifyReceipt(r: {
   root: string
