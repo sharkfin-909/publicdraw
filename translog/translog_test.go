@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/sharkfin009/verifiable-challenge/hashing"
+	"github.com/sharkfin-909/publicdraw/hashing"
 )
 
 func d(s string) hashing.Digest { return hashing.Tagged("test", []byte(s)) }

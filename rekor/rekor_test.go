@@ -129,7 +129,7 @@ func TestSubmitLive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	payload := sha256.Sum256([]byte(fmt.Sprintf("truedraw test %d", time.Now().UnixNano())))
+	payload := sha256.Sum256([]byte(fmt.Sprintf("publicdraw test %d", time.Now().UnixNano())))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()

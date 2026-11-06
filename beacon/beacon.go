@@ -19,7 +19,7 @@ import (
 
 	bls12381 "github.com/drand/kyber-bls12381"
 	blssign "github.com/drand/kyber/sign/bls"
-	"github.com/sharkfin009/verifiable-challenge/hashing"
+	"github.com/sharkfin-909/publicdraw/hashing"
 )
 
 // Quicknet is the drand chain this protocol uses: 3-second rounds, unchained,

@@ -10,14 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sharkfin009/verifiable-challenge/beacon"
-	"github.com/sharkfin009/verifiable-challenge/bundle"
-	"github.com/sharkfin009/verifiable-challenge/draw"
-	"github.com/sharkfin009/verifiable-challenge/hashing"
-	"github.com/sharkfin009/verifiable-challenge/httpapi"
-	"github.com/sharkfin009/verifiable-challenge/merkle"
-	"github.com/sharkfin009/verifiable-challenge/roster"
-	"github.com/sharkfin009/verifiable-challenge/service"
+	"github.com/sharkfin-909/publicdraw/beacon"
+	"github.com/sharkfin-909/publicdraw/bundle"
+	"github.com/sharkfin-909/publicdraw/draw"
+	"github.com/sharkfin-909/publicdraw/hashing"
+	"github.com/sharkfin-909/publicdraw/httpapi"
+	"github.com/sharkfin-909/publicdraw/merkle"
+	"github.com/sharkfin-909/publicdraw/roster"
+	"github.com/sharkfin-909/publicdraw/service"
 )
 
 const (

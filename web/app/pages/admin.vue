@@ -69,7 +69,7 @@ onMounted(load)
     </header>
 
     <div v-if="loadError" class="error">
-      {{ loadError }} — is the draw service running? <code class="mono">vc serve</code>
+      {{ loadError }} — is the draw service running? <code class="mono">publicdraw serve</code>
     </div>
 
     <section class="card">

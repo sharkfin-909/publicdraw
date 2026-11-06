@@ -29,7 +29,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/sharkfin009/verifiable-challenge/hashing"
+	"github.com/sharkfin-909/publicdraw/hashing"
 )
 
 // Kind labels what a record commits to.

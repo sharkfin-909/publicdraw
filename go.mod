@@ -1,10 +1,13 @@
-module github.com/sharkfin009/verifiable-challenge
+module github.com/sharkfin-909/publicdraw
 
 go 1.25
 
 require (
-	github.com/drand/kyber v1.3.2 // indirect
-	github.com/drand/kyber-bls12381 v0.3.4 // indirect
+	github.com/drand/kyber v1.3.2
+	github.com/drand/kyber-bls12381 v0.3.4
+)
+
+require (
 	github.com/kilic/bls12-381 v0.1.0 // indirect
 	golang.org/x/crypto v0.46.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect

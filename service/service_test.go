@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sharkfin009/verifiable-challenge/beacon"
-	"github.com/sharkfin009/verifiable-challenge/bundle"
-	"github.com/sharkfin009/verifiable-challenge/draw"
-	"github.com/sharkfin009/verifiable-challenge/roster"
+	"github.com/sharkfin-909/publicdraw/beacon"
+	"github.com/sharkfin-909/publicdraw/bundle"
+	"github.com/sharkfin-909/publicdraw/draw"
+	"github.com/sharkfin-909/publicdraw/roster"
 )
 
 // A captured quicknet round, so the lifecycle can be driven to completion

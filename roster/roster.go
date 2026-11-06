@@ -14,8 +14,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/sharkfin009/verifiable-challenge/hashing"
-	"github.com/sharkfin009/verifiable-challenge/merkle"
+	"github.com/sharkfin-909/publicdraw/hashing"
+	"github.com/sharkfin-909/publicdraw/merkle"
 )
 
 // SaltSize is the per-entry salt length.

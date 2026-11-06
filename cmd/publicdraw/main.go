@@ -1,4 +1,4 @@
-// Command vc runs and verifies public draws.
+// Command publicdraw runs and verifies public draws.
 //
 // It has no CLI framework dependency on purpose: the verifier is meant to be a
 // small static binary someone can audit and run without trusting where it came
@@ -20,33 +20,33 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sharkfin009/verifiable-challenge/beacon"
-	"github.com/sharkfin009/verifiable-challenge/bundle"
-	"github.com/sharkfin009/verifiable-challenge/httpapi"
-	"github.com/sharkfin009/verifiable-challenge/rekor"
-	"github.com/sharkfin009/verifiable-challenge/roster"
-	"github.com/sharkfin009/verifiable-challenge/service"
-	"github.com/sharkfin009/verifiable-challenge/translog"
+	"github.com/sharkfin-909/publicdraw/beacon"
+	"github.com/sharkfin-909/publicdraw/bundle"
+	"github.com/sharkfin-909/publicdraw/httpapi"
+	"github.com/sharkfin-909/publicdraw/rekor"
+	"github.com/sharkfin-909/publicdraw/roster"
+	"github.com/sharkfin-909/publicdraw/service"
+	"github.com/sharkfin-909/publicdraw/translog"
 )
 
-const usage = `vc — publicly verifiable draws
+const usage = `publicdraw — publicly verifiable draws
 
 organiser:
-  vc keygen  [-out FILE]
-  vc create  -title T [-winners N] [-disclosure public|private] -open 10m
-  vc enter   -draw ID (-label L | -file FILE) [-salts FILE]
-  vc leaves  -draw ID
-  vc anchor  [-draw ID]                      publish the log head to Rekor
-  vc commit  -draw ID
-  vc run     -draw ID [-wait]
-  vc receipt -draw ID -index N [-out FILE]
-  vc serve   [-addr :8080]
+  publicdraw keygen  [-out FILE]
+  publicdraw create  -title T [-winners N] [-disclosure public|private] -open 10m
+  publicdraw enter   -draw ID (-label L | -file FILE) [-salts FILE]
+  publicdraw leaves  -draw ID
+  publicdraw anchor  [-draw ID]                      publish the log head to Rekor
+  publicdraw commit  -draw ID
+  publicdraw run     -draw ID [-wait]
+  publicdraw receipt -draw ID -index N [-out FILE]
+  publicdraw serve   [-addr :8080]
 
 anyone:
-  vc verify  BUNDLE [-json] [-timeline]
-  vc check-receipt RECEIPT
-  vc log     [-abandoned]
-  vc beacon  [ROUND]
+  publicdraw verify  BUNDLE [-json] [-timeline]
+  publicdraw check-receipt RECEIPT
+  publicdraw log     [-abandoned]
+  publicdraw beacon  [ROUND]
 
 global:
   -dir DIR   service directory (default ./vcdata)
@@ -63,7 +63,7 @@ func main() {
 	// Global flags are accepted before the subcommand as well as after it,
 	// because the help advertises them as global and flag.Parse stops at the
 	// first non-flag argument, which is the subcommand.
-	global := flag.NewFlagSet("vc", flag.ContinueOnError)
+	global := flag.NewFlagSet("publicdraw", flag.ContinueOnError)
 	global.SetOutput(io.Discard)
 	global.StringVar(dirFlag, "dir", *dirFlag, "service directory")
 	global.StringVar(keyFlag, "key", *keyFlag, "operator key file")
@@ -110,11 +110,11 @@ func main() {
 		fmt.Print(usage)
 		return
 	default:
-		fmt.Fprintf(os.Stderr, "vc: unknown command %q\n\n%s", cmd, usage)
+		fmt.Fprintf(os.Stderr, "publicdraw: unknown command %q\n\n%s", cmd, usage)
 		os.Exit(2)
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "vc:", err)
+		fmt.Fprintln(os.Stderr, "publicdraw:", err)
 		os.Exit(1)
 	}
 }
@@ -139,7 +139,7 @@ func keyPath() string {
 func openService() (*service.Service, error) {
 	var kf keyFile
 	if err := readJSON(keyPath(), &kf); err != nil {
-		return nil, fmt.Errorf("%w (run: vc keygen)", err)
+		return nil, fmt.Errorf("%w (run: publicdraw keygen)", err)
 	}
 	priv, err := hex.DecodeString(kf.PrivateKey)
 	if err != nil {
@@ -351,7 +351,7 @@ func cmdAnchor(args []string) error {
 		return err
 	}
 	if !svc.AnchorsEnabled() {
-		return fmt.Errorf("anchor: no anchor key in %s (regenerate with: vc keygen)", keyPath())
+		return fmt.Errorf("anchor: no anchor key in %s (regenerate with: publicdraw keygen)", keyPath())
 	}
 
 	head := svc.Log().Head()

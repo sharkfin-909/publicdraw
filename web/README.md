@@ -1,4 +1,4 @@
-# truedraw web
+# publicdraw web
 
 Nuxt 4 front end for the draw service, and — more to the point — a **second,
 independent implementation of the verifier**.

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sharkfin009/verifiable-challenge/beacon"
-	"github.com/sharkfin009/verifiable-challenge/bundle"
+	"github.com/sharkfin-909/publicdraw/beacon"
+	"github.com/sharkfin-909/publicdraw/bundle"
 )
 
 func anchored(t *testing.T) bundle.Bundle {

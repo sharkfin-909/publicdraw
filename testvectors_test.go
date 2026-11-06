@@ -15,12 +15,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/sharkfin009/verifiable-challenge/beacon"
-	"github.com/sharkfin009/verifiable-challenge/draw"
-	"github.com/sharkfin009/verifiable-challenge/hashing"
-	"github.com/sharkfin009/verifiable-challenge/merkle"
-	"github.com/sharkfin009/verifiable-challenge/roster"
-	"github.com/sharkfin009/verifiable-challenge/translog"
+	"github.com/sharkfin-909/publicdraw/beacon"
+	"github.com/sharkfin-909/publicdraw/draw"
+	"github.com/sharkfin-909/publicdraw/hashing"
+	"github.com/sharkfin-909/publicdraw/merkle"
+	"github.com/sharkfin-909/publicdraw/roster"
+	"github.com/sharkfin-909/publicdraw/translog"
 )
 
 var update = flag.Bool("update", false, "rewrite testdata/testvectors.json")

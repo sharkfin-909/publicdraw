@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/sharkfin009/verifiable-challenge/hashing"
+	"github.com/sharkfin-909/publicdraw/hashing"
 )
 
 func leaves(n int) []hashing.Digest {

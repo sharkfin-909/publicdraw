@@ -1,11 +1,11 @@
-# verifiable-challenge
+# publicdraw
 
 Runs public draws — grants, ballots, allocations, giveaways — so that **the
 organiser cannot steer the result** and anyone can check it offline, without
 trusting the organiser or this software.
 
 ```
-$ vc verify -timeline bundle.json
+$ publicdraw verify -timeline bundle.json
 
   created   2026-09-20 18:13:06Z  parameters fixed, nobody has entered yet
   cutoff    2026-09-20 18:13:31Z  entries close
@@ -123,7 +123,7 @@ what was *not* published.
 
 So every draw's creation, cutoff and result are appended to a public hash
 chain. A draw that was created and whose round has since published, with no
-result logged, shows up in `vc log -abandoned`. That is not proof of
+result logged, shows up in `publicdraw log -abandoned`. That is not proof of
 misconduct — draws get cancelled for honest reasons — but it is the only place
 the attack can appear at all.
 
@@ -136,18 +136,18 @@ A hash chain only bites once someone has seen a head. Left to itself the log
 rests on the organiser having published it honestly — which is the thing under
 question.
 
-So `vc commit` publishes the head to **Sigstore's Rekor**, a public
+So `publicdraw commit` publishes the head to **Sigstore's Rekor**, a public
 append-only log the organiser does not run, and keeps the inclusion proof in
 the bundle. Verification recomputes the proof (RFC 6962) and checks it lands on
 the root the log's signed checkpoint carries.
 
 ```sh
-vc anchor -draw ID      # publish the current head by hand
+publicdraw anchor -draw ID      # publish the current head by hand
 ```
 
 Rekor v2's `integratedTime` is always 0 — it is not a timestamp authority. Time
 comes from the **witness cosignatures** on the checkpoint: several independent
-operators countersign the tree head with the moment they saw it. `vc verify`
+operators countersign the tree head with the moment they saw it. `publicdraw verify`
 surfaces those and marks them `SKIP`, because verifying them needs each
 witness's key and a policy for how many must agree. An observed time from three
 independent witnesses is worth showing; it is not worth calling proven.
@@ -170,22 +170,30 @@ Stated plainly, because someone will find these otherwise:
 - **Retries**, from a single bundle. That question is answerable only against
   the full public log, and is also reported as `SKIP`.
 
+## Install
+
+Needs Go 1.25 or later.
+
+```sh
+go install github.com/sharkfin-909/publicdraw/cmd/publicdraw@latest
+```
+
 ## Usage
 
 ```sh
-vc keygen
+publicdraw keygen
 
-vc create -title "Two community grants" -winners 2 -disclosure private -open 10m
-vc enter  -draw ID -file entrants.txt -salts salts.tsv   # salts shown once
-vc leaves -draw ID                      # the published leaf list
-vc commit -draw ID                      # at the cutoff; freezes and logs the roster
-vc receipt -draw ID -index 5 -out receipt.json
-vc run    -draw ID                      # at the target round; publishes the bundle
+publicdraw create -title "Two community grants" -winners 2 -disclosure private -open 10m
+publicdraw enter  -draw ID -file entrants.txt -salts salts.tsv   # salts shown once
+publicdraw leaves -draw ID                      # the published leaf list
+publicdraw commit -draw ID                      # at the cutoff; freezes and logs the roster
+publicdraw receipt -draw ID -index 5 -out receipt.json
+publicdraw run    -draw ID                      # at the target round; publishes the bundle
 
-vc verify bundle.json [-timeline]
-vc check-receipt receipt.json
-vc log [-abandoned]
-vc serve -addr :8080
+publicdraw verify bundle.json [-timeline]
+publicdraw check-receipt receipt.json
+publicdraw log [-abandoned]
+publicdraw serve -addr :8080
 ```
 
 Anchor the log head after each cutoff, so the ordering does not rest on your
@@ -197,7 +205,7 @@ echo -n <log head> | xxd -r -p > log.head && ots stamp log.head
 
 ## HTTP API
 
-`vc serve` exposes the same rules — every ordering constraint lives in the
+`publicdraw serve` exposes the same rules — every ordering constraint lives in the
 service layer, so the API cannot permit something the CLI forbids.
 
 ```
@@ -227,7 +235,9 @@ the server. The CLI exists so nobody has to take it.
 | `translog` | append-only hash chain |
 | `service` | lifecycle and ordering enforcement |
 | `httpapi` | thin HTTP surface |
-| `bundle` | twenty-one checks, no short-circuit |
+| `rekor` | anchors the log head in Sigstore's Rekor; proofs recomputed locally |
+| `bundle` | runs every check, with no short-circuit |
+| `web` | Nuxt front end, with a second verifier in TypeScript ([details](web/README.md)) |
 
 ## Design notes
 
@@ -261,11 +271,12 @@ go test -run TestVectors -update .
 
 ## Status
 
-Go core, service, CLI and HTTP API are complete and tested (10 packages).
+The Go core, service, CLI and HTTP API are complete and tested, and `web/` holds
+a browser client with its own verifier. Both run the same test vectors.
 
-Still to come: OpenTimestamps verification inside `vc verify`, the WASM
-verifier, a browser client, and durable storage behind the file-backed service.
+Still to come: OpenTimestamps verification inside `publicdraw verify`, and durable
+storage behind the file-backed service.
 
 ## Licence
 
-MIT
+[MIT](LICENSE)

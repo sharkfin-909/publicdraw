@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sharkfin009/verifiable-challenge/bundle"
-	"github.com/sharkfin009/verifiable-challenge/roster"
-	"github.com/sharkfin009/verifiable-challenge/service"
+	"github.com/sharkfin-909/publicdraw/bundle"
+	"github.com/sharkfin-909/publicdraw/roster"
+	"github.com/sharkfin-909/publicdraw/service"
 )
 
 // Server wraps a service with an HTTP mux.

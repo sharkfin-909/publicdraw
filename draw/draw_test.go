@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sharkfin009/verifiable-challenge/beacon"
-	"github.com/sharkfin009/verifiable-challenge/hashing"
-	"github.com/sharkfin009/verifiable-challenge/roster"
+	"github.com/sharkfin-909/publicdraw/beacon"
+	"github.com/sharkfin-909/publicdraw/hashing"
+	"github.com/sharkfin-909/publicdraw/roster"
 )
 
 var (

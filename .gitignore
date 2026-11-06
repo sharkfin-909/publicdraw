@@ -2,6 +2,7 @@
 .DS_Store
 .env
 .env.*
+/publicdraw
 /vc
 dist
 node_modules

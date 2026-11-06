@@ -14,7 +14,7 @@ package merkle
 import (
 	"errors"
 
-	"github.com/sharkfin009/verifiable-challenge/hashing"
+	"github.com/sharkfin-909/publicdraw/hashing"
 )
 
 // LeafHash hashes a salted entry into a Merkle leaf. The salt makes leaves

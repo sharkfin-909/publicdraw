@@ -18,13 +18,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sharkfin009/verifiable-challenge/beacon"
-	"github.com/sharkfin009/verifiable-challenge/bundle"
-	"github.com/sharkfin009/verifiable-challenge/draw"
-	"github.com/sharkfin009/verifiable-challenge/hashing"
-	"github.com/sharkfin009/verifiable-challenge/rekor"
-	"github.com/sharkfin009/verifiable-challenge/roster"
-	"github.com/sharkfin009/verifiable-challenge/translog"
+	"github.com/sharkfin-909/publicdraw/beacon"
+	"github.com/sharkfin-909/publicdraw/bundle"
+	"github.com/sharkfin-909/publicdraw/draw"
+	"github.com/sharkfin-909/publicdraw/hashing"
+	"github.com/sharkfin-909/publicdraw/rekor"
+	"github.com/sharkfin-909/publicdraw/roster"
+	"github.com/sharkfin-909/publicdraw/translog"
 )
 
 // State is where a draw has reached in its lifecycle.

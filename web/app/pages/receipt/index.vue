@@ -67,7 +67,7 @@ function checkJson() {
           id="link"
           v-model="link"
           autocomplete="off"
-          placeholder="https://publicdraw.com/receipt/…/4472#s=…"
+          placeholder="https://publicdraw.truelathe.com/receipt/…/4472#s=…"
         />
         <p class="muted" style="font-size: 0.8rem; margin: 8px 0 0">
           The part after <span class="mono">#</span> is the secret half and never leaves your
