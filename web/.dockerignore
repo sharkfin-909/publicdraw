@@ -1,0 +1,5 @@
+.env
+.env.*
+.nuxt
+.output
+node_modules

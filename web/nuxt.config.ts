@@ -13,18 +13,14 @@ export default defineNuxtConfig({
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000',
       siteName: 'publicdraw',
 
-      // The draw service. Proxied in dev (see routeRules) so the browser can
-      // talk to it without the Go server needing CORS headers.
+      // The draw service, proxied by server/api so the browser can talk to it
+      // without the Go server needing CORS headers.
       apiBase: '/api',
       // Fetched by the browser directly, never through our own server: the
       // point of client-side verification is that the beacon does not reach
       // you via the party whose draw you are checking.
       drandBase: 'https://api.drand.sh',
     },
-  },
-
-  routeRules: {
-    '/api/**': { proxy: { to: 'http://localhost:8080/v1/**' } },
   },
 
   css: ['~/assets/css/main.css'],

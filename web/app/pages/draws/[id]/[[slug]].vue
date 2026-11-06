@@ -7,6 +7,7 @@ import { drawPath } from '~/utils/seo'
 const route = useRoute()
 const id = computed(() => String(route.params.id))
 const api = useApi()
+const { token } = useOrganiser()
 
 /**
  * Fetched on the server, not in onMounted.
@@ -16,6 +17,9 @@ const api = useApi()
  * preview and no dependable crawl. It also means the title and description
  * below are real by the time the HTML leaves the server.
  */
+// The bundle arrives from the organiser's server and is checked in this
+// browser, against a pinned drand key. The server's own /verify is deliberately
+// not used: that answer would come from the party who ran the draw.
 const { data: initial, error: loadErr, refresh } = await useAsyncData(
   () => `draw:${id.value}`,
   async () => {
@@ -98,22 +102,11 @@ const { published } = useCountdown(() => draw.value?.params.target_round)
 async function load() {
   err.value = ''
   try {
-    draw.value = await api.getDraw(id.value)
-    if (draw.value.state !== 'open') await loadLeaves()
-    if (draw.value.state === 'drawn') await pullBundle()
+    await refresh()
+    if (draw.value && draw.value.state !== 'open') await loadLeaves()
   } catch (e) {
     err.value = errorText(e)
   }
-}
-
-/**
- * The bundle arrives from the organiser's server and is then checked here,
- * locally, against a pinned drand key. The server's own /verify endpoint is
- * deliberately not used: an answer about whether a draw was honest is worth
- * nothing when it comes from the party who ran it.
- */
-async function pullBundle() {
-  bundle.value = await api.bundle(id.value)
 }
 
 async function act(name: string, fn: () => Promise<unknown>) {
@@ -209,7 +202,7 @@ onMounted(() => {
       </section>
 
       <!-- Entries, while they are open -->
-      <section v-if="draw.state === 'open'" class="card">
+      <section v-if="token && draw.state === 'open'" class="card">
         <h2>Entries</h2>
         <p class="muted" style="font-size: 0.86rem">
           {{ draw.entry_count }} so far. Entering is not committing — the list is only frozen at the
@@ -236,7 +229,7 @@ onMounted(() => {
       </section>
 
       <!-- Committed, waiting for the round -->
-      <section v-if="draw.state === 'committed'" class="card">
+      <section v-if="token && draw.state === 'committed'" class="card">
         <h2>Roster frozen</h2>
         <p class="muted" style="font-size: 0.86rem">
           {{ draw.roster_commit?.size }} entries, signed and written to the public log. The deciding
@@ -313,7 +306,7 @@ onMounted(() => {
         </div>
       </section>
 
-      <section class="card vis" :class="{ listed }">
+      <section v-if="token" class="card vis" :class="{ listed }">
         <div class="spread">
           <div>
             <h2>{{ listed ? 'Published' : 'Unlisted' }}</h2>

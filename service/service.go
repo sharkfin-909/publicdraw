@@ -404,6 +404,26 @@ func (s *Service) Run(ctx context.Context, id string) (bundle.Bundle, error) {
 	return s.assemble(st, r)
 }
 
+// Bundle returns the published bundle of a drawn draw. Unlike Run it changes
+// nothing, so it is safe to serve to anyone.
+func (s *Service) Bundle(ctx context.Context, id string) (bundle.Bundle, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	st, err := s.load(id)
+	if err != nil {
+		return bundle.Bundle{}, err
+	}
+	if st.State != StateDrawn {
+		return bundle.Bundle{}, fmt.Errorf("service: draw %s has not been drawn", id)
+	}
+	r, err := s.fetch(ctx, st.Params.TargetRound)
+	if err != nil {
+		return bundle.Bundle{}, err
+	}
+	return s.assemble(st, r)
+}
+
 func (s *Service) assemble(st *Stored, r beacon.Round) (bundle.Bundle, error) {
 	rnd, err := r.Randomness()
 	if err != nil {

@@ -10,6 +10,8 @@ useSeo({
 })
 
 const api = useApi()
+const { token, signIn, signOut } = useOrganiser()
+const tokenInput = ref('')
 const draws = ref<DrawSummary[]>([])
 const operator = ref<Awaited<ReturnType<typeof api.operator>>>()
 const loadError = ref('')
@@ -25,15 +27,24 @@ const createError = ref('')
 
 async function load() {
   loadError.value = ''
+  if (!token.value) return
   try {
     const [{ draws: ids }, op] = await Promise.all([api.listDraws(), api.operator()])
     operator.value = op
     draws.value = await Promise.all((ids ?? []).map((id) => api.getDraw(id)))
     draws.value.sort((a, b) => b.params.created_at - a.params.created_at)
   } catch (e) {
+    if ((e as { statusCode?: number }).statusCode === 401) signOut()
     loadError.value = errorText(e)
   }
 }
+
+function enter() {
+  signIn(tokenInput.value.trim())
+  tokenInput.value = ''
+}
+
+watch(token, load)
 
 async function create() {
   createError.value = ''
@@ -54,7 +65,6 @@ async function create() {
   }
 }
 
-onMounted(load)
 </script>
 
 <template>
@@ -72,7 +82,23 @@ onMounted(load)
       {{ loadError }} — is the draw service running? <code class="mono">publicdraw serve</code>
     </div>
 
-    <section class="card">
+    <section v-if="!token" class="card">
+      <h2>Organiser sign-in</h2>
+      <p class="muted" style="font-size: 0.86rem">
+        Anyone can read and verify a draw. Running one needs the organiser token.
+      </p>
+      <form class="stack" style="gap: 12px" @submit.prevent="enter">
+        <div>
+          <label for="token">Organiser token</label>
+          <input id="token" v-model="tokenInput" type="password" autocomplete="off" required />
+        </div>
+        <div class="row">
+          <button type="submit" :disabled="!tokenInput">Sign in</button>
+        </div>
+      </form>
+    </section>
+
+    <section v-if="token" class="card">
       <h2>New draw</h2>
       <p class="muted" style="font-size: 0.86rem">
         These parameters are signed and logged now, before a single entry arrives. Changing any of
@@ -118,7 +144,11 @@ onMounted(load)
       </form>
     </section>
 
-    <section v-if="draws.length">
+    <div v-if="token" class="row">
+      <button class="ghost" @click="signOut">Sign out</button>
+    </div>
+
+    <section v-if="token && draws.length">
       <h2 style="margin-bottom: 12px">All draws</h2>
       <div class="stack" style="gap: 10px">
         <NuxtLink v-for="d in draws" :key="d.params.draw_id" :to="drawPath(d.params.draw_id, d.params.title)" class="card drawrow">

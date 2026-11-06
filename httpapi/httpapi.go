@@ -6,6 +6,8 @@
 package httpapi
 
 import (
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -18,28 +20,46 @@ import (
 	"github.com/sharkfin-909/publicdraw/service"
 )
 
+// maxBody bounds every request body. A bundle carries one leaf per entrant, so
+// this has to sit well above the largest draw rather than near it.
+const maxBody = 8 << 20
+
 // Server wraps a service with an HTTP mux.
 type Server struct {
-	svc *service.Service
-	mux *http.ServeMux
+	svc   *service.Service
+	mux   *http.ServeMux
+	token string
+}
+
+// Option configures a Server.
+type Option func(*Server)
+
+// WithOrganiserToken requires this bearer token on every route that signs with
+// the operator key, writes to the log, or lists unlisted draws. Everything a
+// verifier needs stays open: a check that needs permission is not a check.
+func WithOrganiserToken(token string) Option {
+	return func(s *Server) { s.token = token }
 }
 
 // New builds the HTTP surface.
-func New(svc *service.Service) *Server {
+func New(svc *service.Service, opts ...Option) *Server {
 	s := &Server{svc: svc, mux: http.NewServeMux()}
+	for _, opt := range opts {
+		opt(s)
+	}
 
 	s.mux.HandleFunc("GET /v1/health", s.health)
 	s.mux.HandleFunc("GET /v1/operator", s.operator)
-	s.mux.HandleFunc("POST /v1/draws", s.createDraw)
-	s.mux.HandleFunc("GET /v1/draws", s.listDraws)
+	s.mux.HandleFunc("POST /v1/draws", s.organiser(s.createDraw))
+	s.mux.HandleFunc("GET /v1/draws", s.organiser(s.listDraws))
 	s.mux.HandleFunc("GET /v1/draws/{id}", s.getDraw)
 	s.mux.HandleFunc("GET /v1/public/draws", s.listPublic)
-	s.mux.HandleFunc("PUT /v1/draws/{id}/visibility", s.setVisibility)
-	s.mux.HandleFunc("POST /v1/draws/{id}/entries", s.addEntries)
-	s.mux.HandleFunc("POST /v1/draws/{id}/commit", s.commit)
+	s.mux.HandleFunc("PUT /v1/draws/{id}/visibility", s.organiser(s.setVisibility))
+	s.mux.HandleFunc("POST /v1/draws/{id}/entries", s.organiser(s.addEntries))
+	s.mux.HandleFunc("POST /v1/draws/{id}/commit", s.organiser(s.commit))
 	s.mux.HandleFunc("GET /v1/draws/{id}/leaves", s.leaves)
 	s.mux.HandleFunc("GET /v1/draws/{id}/proof/{index}", s.proof)
-	s.mux.HandleFunc("POST /v1/draws/{id}/run", s.run)
+	s.mux.HandleFunc("POST /v1/draws/{id}/run", s.organiser(s.run))
 	s.mux.HandleFunc("GET /v1/draws/{id}/bundle", s.getBundle)
 	s.mux.HandleFunc("GET /v1/log", s.getLog)
 	s.mux.HandleFunc("GET /v1/log/abandoned", s.abandoned)
@@ -48,7 +68,27 @@ func New(svc *service.Service) *Server {
 	return s
 }
 
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.mux.ServeHTTP(w, r) }
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+	s.mux.ServeHTTP(w, r)
+}
+
+// organiser guards a route with the bearer token. Both sides are hashed first,
+// so the comparison takes the same time whatever the guess's length.
+func (s *Server) organiser(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if s.token != "" {
+			got, bearer := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+			have, want := sha256.Sum256([]byte(got)), sha256.Sum256([]byte(s.token))
+			if subtle.ConstantTimeCompare(have[:], want[:]) != 1 || !bearer {
+				w.Header().Set("WWW-Authenticate", "Bearer")
+				fail(w, http.StatusUnauthorized, errors.New("organiser token required"))
+				return
+			}
+		}
+		next(w, r)
+	}
+}
 
 func write(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -284,8 +324,10 @@ func (s *Server) run(w http.ResponseWriter, r *http.Request) {
 	write(w, http.StatusOK, b)
 }
 
+// getBundle only reads. It used to call Run, so anyone could finalise a draw
+// and write to the log with a GET.
 func (s *Server) getBundle(w http.ResponseWriter, r *http.Request) {
-	b, err := s.svc.Run(r.Context(), r.PathValue("id"))
+	b, err := s.svc.Bundle(r.Context(), r.PathValue("id"))
 	if err != nil {
 		svcErr(w, err)
 		return

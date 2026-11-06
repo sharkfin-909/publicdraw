@@ -272,3 +272,105 @@ func TestHTTPUnknownDrawIs404(t *testing.T) {
 		t.Fatalf("unknown draw returned %d, want 404", code)
 	}
 }
+
+func newLockedEnv(t *testing.T, token string) *env {
+	t.Helper()
+	_, priv, _ := draw.GenerateKey()
+	now := time.Unix(tCreate, 0)
+	svc, err := service.New(t.TempDir(), "test-log", priv,
+		service.WithClock(func() time.Time { return now }),
+		service.WithFetcher(func(context.Context, uint64) (beacon.Round, error) {
+			return beacon.Round{Round: vecRound, Signature: vecSig}, nil
+		}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := httptest.NewServer(httpapi.New(svc, httpapi.WithOrganiserToken(token)))
+	t.Cleanup(s.Close)
+	return &env{srv: s, now: &now}
+}
+
+func (e *env) status(t *testing.T, method, path, auth string) int {
+	t.Helper()
+	req, _ := http.NewRequest(method, e.srv.URL+path, bytes.NewReader([]byte("{}")))
+	if auth != "" {
+		req.Header.Set("Authorization", auth)
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	return res.StatusCode
+}
+
+func TestOrganiserRoutesRefuseAnyoneWithoutTheToken(t *testing.T) {
+	const token = "a-token-long-enough-for-the-test-1234"
+	e := newLockedEnv(t, token)
+	routes := [][2]string{
+		{"POST", "/v1/draws"},
+		{"GET", "/v1/draws"},
+		{"PUT", "/v1/draws/x/visibility"},
+		{"POST", "/v1/draws/x/entries"},
+		{"POST", "/v1/draws/x/commit"},
+		{"POST", "/v1/draws/x/run"},
+	}
+	for _, r := range routes {
+		for _, auth := range []string{"", "Bearer wrong", token, "Basic " + token} {
+			if code := e.status(t, r[0], r[1], auth); code != http.StatusUnauthorized {
+				t.Errorf("%s %s with %q: got %d, want 401", r[0], r[1], auth, code)
+			}
+		}
+		if code := e.status(t, r[0], r[1], "Bearer "+token); code == http.StatusUnauthorized {
+			t.Errorf("%s %s refused the right token", r[0], r[1])
+		}
+	}
+}
+
+func TestVerifierRoutesStayOpenWithoutTheToken(t *testing.T) {
+	e := newLockedEnv(t, "a-token-long-enough-for-the-test-1234")
+	for _, path := range []string{"/v1/health", "/v1/operator", "/v1/public/draws", "/v1/log", "/v1/log/abandoned"} {
+		if code := e.status(t, "GET", path, ""); code != http.StatusOK {
+			t.Errorf("GET %s: got %d, want 200", path, code)
+		}
+	}
+	for _, path := range []string{"/v1/draws/x", "/v1/draws/x/leaves", "/v1/draws/x/proof/0", "/v1/draws/x/bundle"} {
+		if code := e.status(t, "GET", path, ""); code == http.StatusUnauthorized {
+			t.Errorf("GET %s asked for a token", path)
+		}
+	}
+}
+
+// Reading must not act. GET /bundle once called Run, so any visitor could
+// finalise a draw and append to the public log.
+func TestReadingTheBundleDoesNotFinaliseADraw(t *testing.T) {
+	e := newEnv(t)
+	var created struct {
+		Params draw.Params `json:"params"`
+	}
+	e.do(t, "POST", "/v1/draws", map[string]any{"title": "t", "winners": 1, "cutoff_at": tCutoff}, &created)
+	id := created.Params.DrawID
+	e.do(t, "POST", "/v1/draws/"+id+"/entries", map[string]any{"labels": []string{"a", "b"}}, nil)
+	*e.now = time.Unix(tCutoff, 0)
+	e.do(t, "POST", "/v1/draws/"+id+"/commit", nil, nil)
+	*e.now = time.Unix(tRound+1, 0)
+
+	if code := e.do(t, "GET", "/v1/draws/"+id+"/bundle", nil, nil); code != http.StatusConflict {
+		t.Fatalf("bundle before the run returned %d, want 409", code)
+	}
+	var st struct {
+		State string `json:"state"`
+	}
+	e.do(t, "GET", "/v1/draws/"+id, nil, &st)
+	if st.State != "committed" {
+		t.Fatalf("state after reading the bundle = %q, want committed", st.State)
+	}
+
+	if code := e.do(t, "POST", "/v1/draws/"+id+"/run", nil, nil); code != http.StatusOK {
+		t.Fatalf("run returned %d", code)
+	}
+	if code := e.do(t, "GET", "/v1/draws/"+id+"/bundle", nil, nil); code != http.StatusOK {
+		t.Fatalf("bundle after the run returned %d, want 200", code)
+	}
+}

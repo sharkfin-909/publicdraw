@@ -23,8 +23,14 @@ export function useApi() {
   // hydration has no Open Graph preview and no reliable crawl.
   const base = import.meta.server ? cfg.apiInternal : cfg.public.apiBase
 
+  const { token } = useOrganiser()
+
   const call = <T>(path: string, opts: Parameters<typeof $fetch>[1] = {}) =>
     $fetch<T>(`${base}${path}`, opts as never)
+
+  /** The routes only an organiser may use. */
+  const organiser = <T>(path: string, opts: Parameters<typeof $fetch>[1] = {}) =>
+    call<T>(path, { ...opts, headers: { Authorization: `Bearer ${token.value}` } })
 
   return {
     health: () => call<{ ok: boolean; log_length: number }>('/health'),
@@ -36,13 +42,13 @@ export function useApi() {
         log_head: string
       }>('/operator'),
 
-    listDraws: () => call<{ draws: string[] }>('/draws'),
+    listDraws: () => organiser<{ draws: string[] }>('/draws'),
 
     /** Only draws whose organiser opted in. Backs the directory and sitemap. */
     listPublic: () => call<{ draws: PublicDraw[] }>('/public/draws'),
 
     setVisibility: (id: string, visibility: 'public' | 'unlisted') =>
-      call<{ draw_id: string; visibility: string }>(`/draws/${id}/visibility`, {
+      organiser<{ draw_id: string; visibility: string }>(`/draws/${id}/visibility`, {
         method: 'PUT',
         body: { visibility },
       }),
@@ -55,7 +61,7 @@ export function useApi() {
       disclosure: string
       open_for_seconds?: number
       cutoff_at?: number
-    }) => call<DrawSummary>('/draws', { method: 'POST', body }),
+    }) => organiser<DrawSummary>('/draws', { method: 'POST', body }),
 
     /**
      * Returns one salt per entrant, and this is the only time they are
@@ -63,7 +69,7 @@ export function useApi() {
      * later from the published leaves alone.
      */
     addEntries: (id: string, labels: string[]) =>
-      call<{ admitted: Admission[] }>(`/draws/${id}/entries`, {
+      organiser<{ admitted: Admission[] }>(`/draws/${id}/entries`, {
         method: 'POST',
         body: { labels },
       }),
@@ -72,7 +78,7 @@ export function useApi() {
       call<{ root: string; size: number; leaves: string[] }>(`/draws/${id}/leaves`),
 
     commit: (id: string) =>
-      call<{ roster_commit: RosterCommitment; roster_sig: string; state: DrawState }>(
+      organiser<{ roster_commit: RosterCommitment; roster_sig: string; state: DrawState }>(
         `/draws/${id}/commit`,
         { method: 'POST' },
       ),
@@ -84,7 +90,7 @@ export function useApi() {
      */
     proof: (id: string, index: number) => call<Proof>(`/draws/${id}/proof/${index}`),
 
-    run: (id: string) => call<Bundle>(`/draws/${id}/run`, { method: 'POST' }),
+    run: (id: string) => organiser<Bundle>(`/draws/${id}/run`, { method: 'POST' }),
 
     bundle: (id: string) => call<Bundle>(`/draws/${id}/bundle`),
 

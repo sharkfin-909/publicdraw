@@ -29,6 +29,11 @@ import (
 	"github.com/sharkfin-909/publicdraw/translog"
 )
 
+const (
+	organiserTokenEnv = "PUBLICDRAW_ORGANISER_TOKEN"
+	minOrganiserToken = 32
+)
+
 const usage = `publicdraw — publicly verifiable draws
 
 organiser:
@@ -40,7 +45,7 @@ organiser:
   publicdraw commit  -draw ID
   publicdraw run     -draw ID [-wait]
   publicdraw receipt -draw ID -index N [-out FILE]
-  publicdraw serve   [-addr :8080]
+  publicdraw serve   [-addr :8080] [-no-auth]   needs PUBLICDRAW_ORGANISER_TOKEN
 
 anyone:
   publicdraw verify  BUNDLE [-json] [-timeline]
@@ -516,17 +521,34 @@ func cmdReceipt(args []string) error {
 func cmdServe(args []string) error {
 	fs := newFlags("serve", args)
 	addr := fs.String("addr", ":8080", "listen address")
+	noAuth := fs.Bool("no-auth", false, "leave organiser routes open, for local development")
 	parse(fs, args)
+
+	token := os.Getenv(organiserTokenEnv)
+	if !*noAuth && len(token) < minOrganiserToken {
+		return fmt.Errorf("serve: set %s to at least %d characters, or pass -no-auth for local development",
+			organiserTokenEnv, minOrganiserToken)
+	}
+	if *noAuth {
+		token = ""
+	}
 
 	svc, err := openService()
 	if err != nil {
 		return err
 	}
-	srv := httpapi.New(svc)
+	srv := &http.Server{
+		Addr:              *addr,
+		Handler:           httpapi.New(svc, httpapi.WithOrganiserToken(token)),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      2 * time.Minute,
+		IdleTimeout:       2 * time.Minute,
+	}
 	fmt.Printf("operator  %s\n", svc.OperatorKey())
 	fmt.Printf("log head  %s\n", svc.Log().Head())
 	fmt.Printf("listening on %s\n", *addr)
-	return http.ListenAndServe(*addr, srv)
+	return srv.ListenAndServe()
 }
 
 func cmdVerify(args []string) error {

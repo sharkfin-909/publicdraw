@@ -193,7 +193,7 @@ publicdraw run    -draw ID                      # at the target round; publishes
 publicdraw verify bundle.json [-timeline]
 publicdraw check-receipt receipt.json
 publicdraw log [-abandoned]
-publicdraw serve -addr :8080
+PUBLICDRAW_ORGANISER_TOKEN=... publicdraw serve -addr :8080
 ```
 
 Anchor the log head after each cutoff, so the ordering does not rest on your
@@ -208,20 +208,38 @@ echo -n <log head> | xxd -r -p > log.head && ots stamp log.head
 `publicdraw serve` exposes the same rules — every ordering constraint lives in the
 service layer, so the API cannot permit something the CLI forbids.
 
+Routes marked `*` need the organiser token as `Authorization: Bearer …`, because
+they sign with the operator key, write to the log or list unlisted draws.
+Everything a verifier needs stays open. `serve` refuses to start without a token
+of at least 32 characters, unless `-no-auth` is passed for local development.
+
 ```
 GET  /v1/operator                      public key, chain, log head
-POST /v1/draws                         create
-POST /v1/draws/{id}/entries            add entries; returns a salt per entrant
-POST /v1/draws/{id}/commit             freeze the roster
+POST /v1/draws                       * create
+POST /v1/draws/{id}/entries          * add entries; returns a salt per entrant
+POST /v1/draws/{id}/commit           * freeze the roster
 GET  /v1/draws/{id}/leaves             every committed leaf, in order
-GET  /v1/draws/{id}/receipt/{index}    one entrant's inclusion proof
-POST /v1/draws/{id}/run                draw and publish
+GET  /v1/draws/{id}/proof/{index}      one entrant's inclusion proof
+GET  /v1/draws/{id}/bundle             the published result, once drawn
+POST /v1/draws/{id}/run              * draw and publish
 GET  /v1/log  ·  /v1/log/abandoned     the public chain
 POST /v1/verify                        check a posted bundle
 ```
 
 `POST /v1/verify` is the weakest way to verify, because the answer comes from
 the server. The CLI exists so nobody has to take it.
+
+## Hosting
+
+`docker-compose.yml` runs the service and the web app, with only the web app
+reachable, on loopback, for a reverse proxy in front. `deploy/` holds the nginx
+site. In a `.env` beside the compose file set `PUBLICDRAW_ORGANISER_TOKEN`
+(`openssl rand -hex 32`) and `NUXT_PUBLIC_SITE_URL`, then:
+
+```sh
+docker compose run --rm api keygen
+docker compose up -d --build
+```
 
 ## Packages
 
