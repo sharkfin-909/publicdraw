@@ -11,7 +11,7 @@ const { label, published } = useCountdown(() => props.round)
     <div class="sub">
       <template v-if="published">
         round <span class="mono">{{ round }}</span> published
-        {{ timeOfRound(round).toLocaleTimeString() }}
+        {{ fmtTime(timeOfRound(round).getTime() / 1000) }}
       </template>
       <template v-else>
         until drand round <span class="mono">{{ round }}</span> exists

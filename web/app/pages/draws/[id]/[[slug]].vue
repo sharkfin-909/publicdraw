@@ -145,13 +145,26 @@ function runSelfCheck() {
     : null
 }
 
-const commit = () => act('commit', () => api.commit(id.value))
 const run = () => act('run', () => api.run(id.value))
 
-
+const now = useState('draw-now', () => Date.now())
 const cutoffPassed = computed(() =>
-  draw.value ? Date.now() / 1000 >= draw.value.params.cutoff_at : false,
+  draw.value ? now.value / 1000 >= draw.value.params.cutoff_at : false,
 )
+const tooFewEntries = computed(() =>
+  draw.value ? draw.value.entry_count < draw.value.params.winners : false,
+)
+
+// The server freezes the roster at the cutoff, so the page has to notice.
+let ticker: ReturnType<typeof setInterval> | undefined
+onMounted(() => {
+  ticker = setInterval(() => {
+    now.value = Date.now()
+    const waiting = draw.value?.state === 'open' && cutoffPassed.value
+    if (waiting && !tooFewEntries.value && !published.value) load()
+  }, 2000)
+})
+onUnmounted(() => ticker && clearInterval(ticker))
 
 // Verification is deliberately client-only: it must run on the reader's
 // machine against the pinned drand key, never on a server they would then
@@ -193,7 +206,7 @@ onMounted(() => {
           <dt>Roster frozen</dt>
           <dd>{{ draw.roster_commit ? fmtTime(draw.roster_commit.committed_at) : 'not yet' }}</dd>
           <dt>Target round</dt>
-          <dd>{{ draw.params.target_round }} · {{ timeOfRound(draw.params.target_round).toLocaleString() }}</dd>
+          <dd>{{ draw.params.target_round }} · {{ fmtTime(timeOfRound(draw.params.target_round).getTime() / 1000) }}</dd>
           <dt>Winners</dt>
           <dd>{{ draw.params.winners }} of {{ draw.roster_commit?.size ?? draw.entry_count }}</dd>
           <dt v-if="draw.roster_commit">Roster root</dt>
@@ -219,12 +232,11 @@ onMounted(() => {
           <AdmissionList v-if="admitted.length" :admitted="admitted" :draw-id="id" />
         </template>
         <div v-else class="notice" style="margin-top: 10px">
-          The cutoff has passed. Entries are closed — freeze the roster to continue.
-          <div class="row" style="margin-top: 10px">
-            <button :disabled="busy === 'commit'" @click="commit">
-              {{ busy === 'commit' ? 'Freezing…' : 'Freeze the roster' }}
-            </button>
-          </div>
+          <template v-if="tooFewEntries">
+            The cutoff passed with too few entries for {{ draw.params.winners }}
+            {{ draw.params.winners === 1 ? 'winner' : 'winners' }}, so this draw cannot be completed.
+          </template>
+          <template v-else>Entries are closed. Freezing the roster…</template>
         </div>
       </section>
 

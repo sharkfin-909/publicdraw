@@ -545,10 +545,25 @@ func cmdServe(args []string) error {
 		WriteTimeout:      2 * time.Minute,
 		IdleTimeout:       2 * time.Minute,
 	}
+	go freezeDraws(svc)
 	fmt.Printf("operator  %s\n", svc.OperatorKey())
 	fmt.Printf("log head  %s\n", svc.Log().Head())
 	fmt.Printf("listening on %s\n", *addr)
 	return srv.ListenAndServe()
+}
+
+// freezeDraws freezes each draw as its cutoff passes, for as long as the server
+// runs. Checked every second: a draw has about 15 seconds to freeze in.
+func freezeDraws(svc *service.Service) {
+	for range time.Tick(time.Second) {
+		frozen, err := svc.FreezeDue()
+		for _, id := range frozen {
+			fmt.Printf("froze %s\n", id)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "publicdraw:", err)
+		}
+	}
 }
 
 func cmdVerify(args []string) error {

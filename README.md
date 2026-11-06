@@ -208,6 +208,10 @@ echo -n <log head> | xxd -r -p > log.head && ots stamp log.head
 `publicdraw serve` exposes the same rules — every ordering constraint lives in the
 service layer, so the API cannot permit something the CLI forbids.
 
+While it runs, `serve` freezes each draw as its cutoff passes, because the
+window before the target round is only seconds long. A draw with too few entries
+stays open and cannot be completed.
+
 Routes marked `*` need the organiser token as `Authorization: Bearer …`, because
 they sign with the operator key, write to the log or list unlisted draws.
 Everything a verifier needs stays open. `serve` refuses to start without a token

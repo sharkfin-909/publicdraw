@@ -90,6 +90,19 @@ export interface Bundle {
 }
 
 /** The public half of a receipt: no salt, no label. */
+/** One row of the public directory: never entries or salts. */
+export interface PublicDraw {
+  draw_id: string
+  title: string
+  state: DrawState
+  winners: number
+  disclosure: Disclosure
+  created_at: number
+  target_round: number
+  entry_count: number
+  committed_at?: number
+}
+
 export interface Proof {
   draw_id: string
   root: string

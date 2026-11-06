@@ -3,6 +3,8 @@ import type {
   Bundle,
   DrawSummary,
   LogRecord,
+  Proof,
+  PublicDraw,
   Receipt,
   RosterCommitment,
   DrawState,

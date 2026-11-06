@@ -347,3 +347,61 @@ func mustAbandoned(t *testing.T, s *Service) []string {
 	}
 	return got
 }
+
+func TestFreezeDueFreezesOnlyDrawsPastTheirCutoff(t *testing.T) {
+	h := newHarness(t)
+	due, _ := h.Create("due", 1, roster.Private, time.Unix(tCutoff, 0))
+	if _, err := h.Enter(due.Params.DrawID, names(2)...); err != nil {
+		t.Fatal(err)
+	}
+	short, _ := h.Create("short", 3, roster.Private, time.Unix(tCutoff, 0))
+	if _, err := h.Enter(short.Params.DrawID, names(1)...); err != nil {
+		t.Fatal(err)
+	}
+
+	frozen, err := h.FreezeDue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(frozen) != 0 {
+		t.Fatalf("froze %v before the cutoff", frozen)
+	}
+
+	h.set(tCutoff)
+	frozen, err = h.FreezeDue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(frozen) != 1 || frozen[0] != due.Params.DrawID {
+		t.Fatalf("froze %v, want only %s", frozen, due.Params.DrawID)
+	}
+	st, _ := h.Get(due.Params.DrawID)
+	if st.State != StateCommitted {
+		t.Fatalf("state = %q, want committed", st.State)
+	}
+	st, _ = h.Get(short.Params.DrawID)
+	if st.State != StateOpen {
+		t.Fatalf("a draw short of entries was frozen: %q", st.State)
+	}
+
+	if frozen, err = h.FreezeDue(); err != nil || len(frozen) != 0 {
+		t.Fatalf("second pass froze %v, err %v", frozen, err)
+	}
+}
+
+func TestFreezeDueLeavesADrawWhoseRoundHasPublished(t *testing.T) {
+	h := newHarness(t)
+	st, _ := h.Create("late", 1, roster.Private, time.Unix(tCutoff, 0))
+	if _, err := h.Enter(st.Params.DrawID, names(2)...); err != nil {
+		t.Fatal(err)
+	}
+
+	h.set(tRound)
+	frozen, err := h.FreezeDue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(frozen) != 0 {
+		t.Fatalf("froze %v after the round published", frozen)
+	}
+}

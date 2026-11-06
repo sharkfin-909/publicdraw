@@ -10,7 +10,8 @@ import { timeOfRound } from '~/lib/beacon'
  * has.
  */
 export function useCountdown(round: MaybeRefOrGetter<number | undefined>) {
-  const now = ref(Date.now())
+  // Shared with the browser through the payload, so both render the same label.
+  const now = useState('countdown-now', () => Date.now())
   let timer: ReturnType<typeof setInterval> | undefined
 
   onMounted(() => {
@@ -45,10 +46,17 @@ export function useCountdown(round: MaybeRefOrGetter<number | undefined>) {
   return { target, msRemaining, published, label, now }
 }
 
+/**
+ * In UTC, in one fixed format. A proof should read the same to everyone, and
+ * the server and the browser must render the same text or hydration fails.
+ */
+const UTC = new Intl.DateTimeFormat('en-GB', {
+  dateStyle: 'medium',
+  timeStyle: 'medium',
+  timeZone: 'UTC',
+})
+
 export function fmtTime(unix: number | undefined): string {
   if (!unix) return '—'
-  return new Date(unix * 1000).toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'medium',
-  })
+  return `${UTC.format(new Date(unix * 1000))} UTC`
 }

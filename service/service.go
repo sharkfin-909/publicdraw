@@ -585,6 +585,41 @@ func (s *Service) Abandoned() ([]string, error) {
 	return out, nil
 }
 
+// FreezeDue commits every open draw whose cutoff has passed, and returns the ids
+// it froze. The window before the target round is only seconds long, so this
+// cannot wait for a person. A draw short of entries is left open: it cannot be
+// frozen, and it shows up in Abandoned once its round has published.
+func (s *Service) FreezeDue() ([]string, error) {
+	ids, err := s.List()
+	if err != nil {
+		return nil, err
+	}
+	var frozen []string
+	var errs []error
+	for _, id := range ids {
+		st, err := s.Get(id)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		now := s.now()
+		if st.State != StateOpen || now.Unix() < st.Params.CutoffAt ||
+			len(st.Sealed) < st.Params.Winners ||
+			now.Unix() >= s.chain.TimeOf(st.Params.TargetRound).Unix() {
+			continue
+		}
+		if _, err := s.CommitRoster(id); err != nil {
+			// Someone may have frozen it by hand since Get. That is no failure.
+			if cur, getErr := s.Get(id); getErr != nil || cur.State == StateOpen {
+				errs = append(errs, fmt.Errorf("freeze %s: %w", id, err))
+			}
+			continue
+		}
+		frozen = append(frozen, id)
+	}
+	return frozen, errors.Join(errs...)
+}
+
 // SetVisibility marks a draw listed or unlisted. It touches no signed material.
 func (s *Service) SetVisibility(id string, v Visibility) (*Stored, error) {
 	s.mu.Lock()
