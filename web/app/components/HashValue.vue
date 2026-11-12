@@ -6,14 +6,8 @@ const shown = computed(() =>
 </script>
 
 <template>
-  <span class="hv" :title="value">
-    <span v-if="label" class="lbl">{{ label }}</span>
-    <code>{{ shown }}</code>
+  <span class="inline-flex items-baseline gap-2" :title="value">
+    <span v-if="label" class="text-[0.72rem] text-muted">{{ label }}</span>
+    <code class="min-w-0 font-mono text-[0.76rem] text-muted wrap-anywhere">{{ shown }}</code>
   </span>
 </template>
-
-<style scoped>
-.hv { display: inline-flex; gap: 8px; align-items: baseline; }
-.lbl { font-size: 0.72rem; color: var(--muted); }
-code { font-family: var(--mono); font-size: 0.76rem; color: var(--muted); overflow-wrap: anywhere; min-width: 0; }
-</style>

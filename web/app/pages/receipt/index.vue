@@ -50,17 +50,17 @@ function checkJson() {
 </script>
 
 <template>
-  <main class="wrap stack">
+  <UiPage>
     <header>
-      <p class="eyebrow">entrants</p>
+      <UiEyebrow>entrants</UiEyebrow>
       <h1>Check an entry receipt</h1>
-      <p class="muted" style="max-width: 62ch">
+      <p class="max-w-[62ch] text-muted">
         A receipt proves you were in a draw’s committed entry list, at a specific position, without
         revealing anyone else. Checked here in your browser.
       </p>
     </header>
 
-    <section class="card">
+    <UiCard>
       <form @submit.prevent="openLink">
         <label for="link">Paste the link you were given when you entered</label>
         <input
@@ -69,49 +69,44 @@ function checkJson() {
           autocomplete="off"
           placeholder="https://publicdraw.truelathe.com/receipt/…/4472#s=…"
         />
-        <p class="muted" style="font-size: 0.8rem; margin: 8px 0 0">
-          The part after <span class="mono">#</span> is the secret half and never leaves your
+        <p class="mt-2 mb-0 text-[0.8rem] text-muted">
+          The part after <span class="font-mono text-[0.85em]">#</span> is the secret half and never leaves your
           browser — so paste the whole link, not a shortened one.
         </p>
-        <div v-if="linkError" class="error" style="margin-top: 10px">{{ linkError }}</div>
-        <div class="row" style="margin-top: 12px">
-          <button type="submit" :disabled="!link">Check my entry</button>
+        <UiCallout v-if="linkError" tone="error" class="mt-2.5">{{ linkError }}</UiCallout>
+        <div class="mt-3 flex flex-wrap items-center gap-3 *:min-w-0">
+          <UiButton type="submit" :disabled="!link">Check my entry</UiButton>
         </div>
       </form>
-    </section>
+    </UiCard>
 
-    <details class="card">
-      <summary>I have a receipt file instead</summary>
-      <p class="muted" style="font-size: 0.86rem; margin-top: 12px">
+    <UiCard as="details">
+      <summary class="cursor-pointer text-[0.92rem] font-semibold [details[open]>&]:mb-1">I have a receipt file instead</summary>
+      <p class="mt-3 text-[0.86rem] text-muted">
         Older receipts were issued as JSON. They still check the same way.
       </p>
-      <label for="raw" style="margin-top: 10px">Paste the receipt</label>
+      <label for="raw" class="mt-2.5">Paste the receipt</label>
       <textarea id="raw" v-model="raw" placeholder="{ &quot;draw_id&quot;: …, &quot;merkle_path&quot;: [ … ] }" />
-      <div class="row" style="margin-top: 10px">
-        <button class="ghost" :disabled="!raw" @click="checkJson">Check receipt</button>
+      <div class="mt-2.5 flex flex-wrap items-center gap-3 *:min-w-0">
+        <UiButton variant="ghost" :disabled="!raw" @click="checkJson">Check receipt</UiButton>
       </div>
 
-      <div v-if="err" class="error" style="margin-top: 12px">Could not read that receipt: {{ err }}</div>
+      <UiCallout v-if="err" tone="error" class="mt-3">Could not read that receipt: {{ err }}</UiCallout>
 
-      <div v-if="result" style="margin-top: 16px">
-        <h2 :style="{ color: result.ok ? 'var(--seal)' : 'var(--fault)', fontSize: '1.1rem' }">
+      <div v-if="result" class="mt-4">
+        <h2 class="text-[1.1rem]" :class="result.ok ? 'text-seal' : 'text-fault'">
           {{ result.ok ? 'Receipt verifies' : 'Receipt does not verify' }}
         </h2>
-        <dl class="kv" style="margin-top: 10px">
+        <UiKeyValues class="mt-2.5">
           <dt>Entry</dt><dd>{{ result.receipt.entry.label }}</dd>
           <dt>Position</dt><dd>{{ result.receipt.index }} of {{ result.receipt.size }}</dd>
           <dt>Roster root</dt><dd>{{ result.receipt.root }}</dd>
-        </dl>
-        <p v-if="result.ok" class="notice" style="margin-top: 12px">
+        </UiKeyValues>
+        <UiCallout v-if="result.ok" as="p" class="mt-3">
           Now check that root matches the one on the draw’s published result.
           <NuxtLink :to="`/draws/${result.receipt.draw_id}`">Open the draw →</NuxtLink>
-        </p>
+        </UiCallout>
       </div>
-    </details>
-  </main>
+    </UiCard>
+  </UiPage>
 </template>
-
-<style scoped>
-details summary { cursor: pointer; font-weight: 600; font-size: 0.92rem; }
-details[open] summary { margin-bottom: 4px; }
-</style>

@@ -21,6 +21,7 @@ export default defineEventHandler(async (event) => {
     { loc: '/', priority: '1.0', changefreq: 'weekly' },
     { loc: '/draws', priority: '0.9', changefreq: 'daily' },
     { loc: '/verify', priority: '0.8', changefreq: 'monthly' },
+    { loc: '/technical', priority: '0.7', changefreq: 'monthly' },
     { loc: '/receipt', priority: '0.7', changefreq: 'monthly' },
     { loc: '/log', priority: '0.6', changefreq: 'daily' },
   ]

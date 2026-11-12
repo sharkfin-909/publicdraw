@@ -71,30 +71,30 @@ function check() {
 </script>
 
 <template>
-  <main class="wrap stack">
+  <UiPage>
     <header>
-      <p class="eyebrow">entrants</p>
+      <UiEyebrow>entrants</UiEyebrow>
       <h1>Check your entry</h1>
-      <p class="muted" style="max-width: 62ch">
+      <p class="max-w-[62ch] text-muted">
         This confirms you were in the committed entry list for this draw, at position
-        <span class="mono">{{ index }}</span
+        <span class="font-mono text-[0.85em]">{{ index }}</span
         >. It runs in your browser, and reveals nothing about anyone else.
       </p>
     </header>
 
-    <div v-if="err" class="error">{{ err }}</div>
+    <UiCallout v-if="err" tone="error">{{ err }}</UiCallout>
 
-    <section v-if="proof" class="card">
-      <dl class="kv">
+    <UiCard v-if="proof">
+      <UiKeyValues>
         <dt>Draw</dt>
         <dd>{{ draw?.params.title || drawId }}</dd>
         <dt>Your position</dt>
         <dd>{{ index }} of {{ proof.size }}</dd>
         <dt>Committed roster</dt>
         <dd>{{ proof.root }}</dd>
-      </dl>
+      </UiKeyValues>
 
-      <form style="margin-top: 20px" @submit.prevent="check">
+      <form class="mt-5" @submit.prevent="check">
         <label for="label">Confirm the entry you gave — the exact email or name</label>
         <input
           id="label"
@@ -103,69 +103,47 @@ function check() {
           placeholder="you@example.com"
           :disabled="!salt"
         />
-        <p v-if="!salt" class="notice" style="margin-top: 10px">
+        <UiCallout v-if="!salt" as="p" class="mt-2.5">
           This link is missing its secret part. Open the full link you were given when you entered —
-          it ends in <span class="mono">#s=…</span> — rather than one copied from the address bar.
-        </p>
-        <div class="row" style="margin-top: 12px">
-          <button type="submit" :disabled="!label || !salt">Check my entry</button>
+          it ends in <span class="font-mono text-[0.85em]">#s=…</span> — rather than one copied from the address bar.
+        </UiCallout>
+        <div class="mt-3 flex flex-wrap items-center gap-3 *:min-w-0">
+          <UiButton type="submit" :disabled="!label || !salt">Check my entry</UiButton>
         </div>
       </form>
-    </section>
+    </UiCard>
 
-    <section v-if="state === 'pass'" class="ticket">
-      <div class="ticket-head">
+    <!-- The ticket: a dashed tear line under its head, as on a paper stub. -->
+    <section
+      v-if="state === 'pass'"
+      class="relative rounded-box border border-line bg-surface px-[26px] py-6 text-ink
+             shadow-[0_1px_0_rgba(15,22,32,0.04),0_10px_26px_-16px_rgba(15,22,32,0.45)]
+             before:absolute before:inset-x-0 before:top-16 before:border-t before:border-dashed before:border-line"
+    >
+      <div class="flex items-center gap-[11px] pb-[22px]">
         <BrandMark :size="30" />
-        <span class="ticket-title">Keep this ticket</span>
+        <span class="font-serif text-[1.12rem] font-semibold">Keep this ticket</span>
       </div>
-      <h2 class="ticket-verdict">You were entry {{ index }} of {{ proof!.size }}</h2>
-      <p style="font-size: 0.9rem; margin: 10px 0 0">
+      <h2 class="mt-[22px] font-serif text-[1.3rem] text-seal">You were entry {{ index }} of {{ proof!.size }}</h2>
+      <p class="mt-2.5 mb-0 text-[0.9rem]">
         Your entry was in the list the organiser committed to, and that commitment was signed before
         the deciding randomness existed.
       </p>
-      <p class="ticket-note">
+      <p class="mt-[18px] mb-0 rounded-box bg-seal-bg px-3.5 py-3 text-[0.86rem] leading-[1.55] [&_a]:font-semibold">
         Now check that this roster is the one the winners came from — the root above should match
         the one on the published result.
         <NuxtLink :to="`/draws/${drawId}`">Open the draw →</NuxtLink>
       </p>
     </section>
 
-    <section v-if="state === 'fail'" class="card" style="border-color: var(--fault)">
-      <h2 style="color: var(--fault)">That does not match</h2>
-      <p style="font-size: 0.92rem; margin: 10px 0 0">
+    <UiCard v-if="state === 'fail'" class="border-fault!">
+      <h2 class="text-fault">That does not match</h2>
+      <p class="mt-2.5 mb-0 text-[0.92rem]">
         Nothing at position {{ index }} in this roster hashes to that entry and salt. Most often
         this is a typo in the entry — it has to be character for character what was submitted. If it
         is exactly right, then the entry at this position is not yours, and that is worth raising
         with whoever ran the draw.
       </p>
-    </section>
-  </main>
+    </UiCard>
+  </UiPage>
 </template>
-
-<style scoped>
-.ticket {
-  background: var(--surface);
-  color: var(--ink);
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  padding: 24px 26px;
-  position: relative;
-  box-shadow: 0 1px 0 rgba(15, 22, 32, 0.04), 0 10px 26px -16px rgba(15, 22, 32, 0.45);
-}
-.ticket::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 64px;
-  border-top: 1px dashed var(--line);
-}
-.ticket-head { display: flex; align-items: center; gap: 11px; padding-bottom: 22px; }
-.ticket-title { font-family: var(--serif); font-size: 1.12rem; font-weight: 600; }
-.ticket-verdict { font-family: var(--serif); font-size: 1.3rem; margin: 22px 0 0; color: var(--seal); }
-.ticket-note {
-  margin: 18px 0 0; padding: 12px 14px; border-radius: 3px;
-  background: var(--seal-bg); font-size: 0.86rem; line-height: 1.55;
-}
-.ticket-note a { color: var(--seal); font-weight: 600; }
-</style>

@@ -15,10 +15,10 @@ const small = computed(() => props.size < 44)
 const height = computed(() => Math.round((props.size / 96) * 64))
 
 // The stub fills the frame's inner edge exactly, so it moves with the stroke:
-// a 5-unit edge leaves the inside at 5, a 3-unit edge at 4.5.
+// a 5-unit edge leaves the inside at 5, a 2-unit edge at 4.
 const stub = computed(() => small.value
   ? 'M5 18 a5 5 0 0 1 5 -5 h24 v38 h-24 a5 5 0 0 1 -5 -5 z'
-  : 'M4.5 18 a5.5 5.5 0 0 1 5.5 -5.5 h24 v39 h-24 a5.5 5.5 0 0 1 -5.5 -5.5 z')
+  : 'M4 18 a6 6 0 0 1 6 -6 h24 v40 h-24 a6 6 0 0 1 -6 -6 z')
 
 // The broadcast: rings spreading from the beacon, fading as they go and cut
 // off by the ticket, so they read as a signal rather than a target. They are
@@ -46,7 +46,7 @@ const clipId = `mark-face-${useId()}`
   >
     <rect
       x="3" y="11" width="90" height="42" rx="7"
-      fill="none" class="edge" :stroke-width="small ? 5 : 3"
+      fill="none" class="edge" :stroke-width="small ? 5 : 2"
     />
     <path :d="stub" class="stub" />
     <line
@@ -56,7 +56,7 @@ const clipId = `mark-face-${useId()}`
     />
     <template v-if="!small">
       <clipPath :id="clipId">
-        <path d="M36 12.5 h50 a5.5 5.5 0 0 1 5.5 5.5 v28 a5.5 5.5 0 0 1 -5.5 5.5 h-50 z" />
+        <path d="M36 12 h50 a6 6 0 0 1 6 6 v28 a6 6 0 0 1 -6 6 h-50 z" />
       </clipPath>
       <g :clip-path="`url(#${clipId})`" fill="none" stroke-width="2.5">
         <circle
@@ -70,9 +70,9 @@ const clipId = `mark-face-${useId()}`
 </template>
 
 <style scoped>
-.mark .edge   { stroke: var(--ink); }
-.mark .stub   { fill: var(--seal); }
-.mark .perf   { stroke: var(--surface); }
+.mark .edge   { stroke: var(--color-beacon); } /* mauve, with the beacon and rings */
+.mark .stub   { fill: var(--color-seal); }
+.mark .perf   { stroke: var(--color-surface); }
 /* Lighter than --beacon, which is tuned for text: at logo size the deep
    purple read as a black dot, and the beacon is the idea the mark is about. */
 .mark .beacon { fill: #785964; }

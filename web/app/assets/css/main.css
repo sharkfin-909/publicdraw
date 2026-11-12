@@ -1,11 +1,5 @@
-/*
-  One deliberate look, on paper.
+@import "tailwindcss";
 
-  The site used to carry a cool slate palette and a warm hero that argued with
-  each other, plus a dark theme on top. Paper is the brand, so the page is
-  paper and there is no second theme to keep in step. color-scheme is pinned
-  to light so form controls and scrollbars do not render dark underneath it.
-*/
 /*
   Ordnance, on white — one deliberate look, no second theme.
 
@@ -14,148 +8,84 @@
   Every text value clears AA on both the page and the card tint; --control
   is a separate, darker line because on a white page a 1.4:1 border is not
   an identifiable control boundary (WCAG 1.4.11 wants 3:1).
-*/
-:root {
-  color-scheme: light;
 
-  --ground:   #f6fafd;
-  --ground-deep: #daecf8;
-  --surface:  #f7f9fb;
-  --raised:   #ffffff;
-  --ink:      #0f1620;
-  --muted:    #4b5566;
-  --faint:    #656f7e;
-  --line:     #dbe3ea;
-  --control:  #7f8d9c;
-  --rule:     #e6ecf2;
+  Tokens live in @theme, so each is both a CSS variable (--color-seal) and a
+  utility (text-seal, bg-seal, border-seal).
+*/
+@theme {
+  --color-ground:      #f6fafd;
+  --color-ground-deep: #daecf8;
+  --color-surface:     #f7f9fb;
+  --color-raised:      #ffffff;
+  --color-ink:         #0f1620;
+  --color-muted:       #4b5566;
+  --color-faint:       #656f7e;
+  --color-line:        #dbe3ea;
+  --color-control:     #7f8d9c;
+  --color-rule:        #e6ecf2;
 
   /* Each carries a job in the protocol, not a mood. */
-  --seal:     #0a5f72;
-  --seal-bg:  #e0edf1;
-  --beacon:    #785964;
-  --beacon-bg: #f1e8ec;
-  --fault:    #9c1f35;
-  --fault-bg: #f6e2e6;
+  --color-seal:      #0a5f72;
+  --color-seal-bg:   #e0edf1;
+  --color-beacon:    #785964;
+  --color-beacon-bg: #f1e8ec;
+  --color-fault:     #9c1f35;
+  --color-fault-bg:  #f6e2e6;
 
-  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --serif: Newsreader, Georgia, "Times New Roman", serif;
-}
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: Newsreader, Georgia, "Times New Roman", serif;
 
-* { box-sizing: border-box; }
-
-html, body { margin: 0; padding: 0; }
-
-body {
-  background: var(--ground);
-  /* Lightest at the die in the left margin (BeaconBackdrop: centre of the
-     margin, 18vh up), deepening towards the far corner. Fixed, like the die,
-     so the two stay together as the page scrolls. */
-  background-image: radial-gradient(
-    circle farthest-corner at max(0px, (100vw - 920px) / 4) calc(100% - 18vh),
-    var(--ground) 0%, var(--ground-deep) 35%
-  );
-  background-attachment: fixed;
-  color: var(--ink);
-  font-family: var(--sans);
-  font-size: 15px;
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-}
-
-a { color: var(--seal); text-decoration: none; }
-a:hover { text-decoration: underline; }
-:focus-visible { outline: 2px solid var(--seal); outline-offset: 2px; border-radius: 2px; }
-
-h1, h2, h3 { font-family: var(--serif); font-weight: 600; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
-h1 { font-size: clamp(1.7rem, 4vw, 2.3rem); line-height: 1.12; }
-h2 { font-size: 1.3rem; line-height: 1.2; }
-h3 { font-size: 0.95rem; font-family: var(--sans); font-weight: 600; }
-p { margin: 0 0 14px; }
-
-.wrap { max-width: 920px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 80px; }
-
-.eyebrow {
-  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.14em;
-  text-transform: uppercase; color: var(--seal); margin: 0 0 8px;
-}
-.muted { color: var(--muted); }
-.mono { font-family: var(--mono); font-size: 0.85em; }
-.hash { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); overflow-wrap: anywhere; }
-
-.card {
-  background: var(--surface); border: 1px solid var(--line);
-  border-radius: 3px; padding: 20px; min-width: 0;
+  /* The content column, shared by the page and the header. */
+  --container-page: 920px;
+  --radius-box: 3px;
   /* Faint lift off the sky-blue ground. */
-  box-shadow: 0 1px 2px rgba(15, 22, 32, 0.04), 0 6px 16px rgba(15, 22, 32, 0.05);
+  --shadow-card: 0 1px 3px rgba(15, 22, 32, 0.06), 0 8px 22px rgba(15, 22, 32, 0.08);
 }
-.card code, .card .mono { overflow-wrap: anywhere; }
-.card + .card { margin-top: 16px; }
 
-.stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.stack > * { min-width: 0; }
-.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; min-width: 0; }
-.row > * { min-width: 0; }
-.spread { display: flex; gap: 16px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; min-width: 0; }
-.spread > * { min-width: 0; }
+/*
+  Element defaults. Prose and forms are written as plain elements across the
+  pages, so their typography is set once here rather than on every tag.
+*/
+@layer base {
+  :root { color-scheme: light; }
 
-label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 5px; color: var(--muted); }
-input, select, textarea {
-  font: inherit; width: 100%; padding: 9px 11px;
-  background: var(--raised); color: var(--ink);
-  border: 1px solid var(--control); border-radius: 3px;
-}
-textarea { font-family: var(--mono); font-size: 0.85rem; min-height: 130px; resize: vertical; }
+  body {
+    background-color: var(--color-ground);
+    /* Lightest at the die in the left margin (BeaconBackdrop: centre of the
+       margin, 18vh up), deepening towards the far corner. Fixed, like the die,
+       so the two stay together as the page scrolls. */
+    background-image: radial-gradient(
+      circle farthest-corner at max(0px, (100vw - 920px) / 4) calc(100% - 18vh),
+      var(--color-ground) 0%, var(--color-ground-deep) 35%
+    );
+    background-attachment: fixed;
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
 
-button {
-  font: inherit; font-weight: 600; font-size: 0.88rem; cursor: pointer;
-  padding: 9px 16px; border-radius: 3px;
-  background: var(--seal); color: var(--surface); border: 1px solid var(--seal);
-}
-button:hover:not(:disabled) { filter: brightness(1.12); }
-button:disabled { opacity: 0.45; cursor: not-allowed; }
-button.ghost { background: transparent; color: var(--seal); }
+  a { color: var(--color-seal); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  :focus-visible { outline: 2px solid var(--color-seal); outline-offset: 2px; border-radius: 2px; }
 
-.pill {
-  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.06em;
-  padding: 2px 9px; border-radius: 10px; text-transform: uppercase; white-space: nowrap;
-}
-.pill.open      { background: var(--beacon-bg); color: var(--beacon); }
-.pill.committed { background: var(--seal-bg);  color: var(--seal); }
-.pill.drawn     { background: var(--seal-bg);  color: var(--seal); }
+  h1, h2, h3 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+  h1 { font-size: clamp(1.7rem, 4vw, 2.3rem); line-height: 1.12; }
+  h2 { font-size: 1.3rem; line-height: 1.2; }
+  h3 { font-size: 0.95rem; font-family: var(--font-sans); font-weight: 600; }
+  p { margin: 0 0 14px; }
 
-.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-/* The gap spaces grid cards; the stacked-card margin would offset all but the first. */
-.grid > .card + .card { margin-top: 0; }
+  label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 5px; color: var(--color-muted); }
+  input, select, textarea {
+    width: 100%; padding: 9px 11px;
+    background: var(--color-raised); color: var(--color-ink);
+    border: 1px solid var(--color-control); border-radius: var(--radius-box);
+  }
+  textarea { font-family: var(--font-mono); font-size: 0.85rem; min-height: 130px; resize: vertical; }
 
-.kv { display: grid; grid-template-columns: minmax(110px, auto) minmax(0, 1fr); gap: 6px 16px; font-size: 0.88rem; }
-.kv dt { color: var(--muted); min-width: 0; }
-.kv dd { margin: 0; min-width: 0; font-family: var(--mono); font-size: 0.82rem; overflow-wrap: anywhere; }
-
-.error { background: var(--fault-bg); color: var(--fault); padding: 10px 13px; border-radius: 3px; font-size: 0.88rem; }
-.notice { background: var(--beacon-bg); color: var(--beacon); padding: 10px 13px; border-radius: 3px; font-size: 0.88rem; }
-
-nav.top {
-  border-bottom: 1px solid var(--rule); background: var(--surface);
-  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10;
-}
-nav.top .inner {
-  max-width: 920px; margin: 0 auto; padding: 12px 20px;
-  display: flex; gap: 20px; align-items: baseline; flex-wrap: wrap;
-}
-nav.top .brand { font-family: var(--serif); font-size: 1.4rem; font-weight: 600; color: var(--ink); }
-nav.top a { font-size: 0.86rem; color: var(--muted); }
-/* The brand is not a nav item: on "/" it matched router-link-active and the
-   wordmark turned teal, so the logo changed colour depending on the page. */
-nav.top a.router-link-active:not(.brand) { color: var(--seal); font-weight: 600; }
-nav.top a.brand { color: var(--ink); }
-
-table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
-th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
-th { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
-.scroller { overflow-x: auto; }
-
-@media (max-width: 560px) {
-  .kv { grid-template-columns: 1fr; gap: 2px 0; }
-  .kv dt { margin-top: 8px; }
+  table { width: 100%; font-size: 0.86rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--color-rule); vertical-align: top; }
+  th { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-muted); font-weight: 600; }
 }

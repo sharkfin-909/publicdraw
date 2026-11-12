@@ -228,7 +228,7 @@ const rings = 4
 }
 .strip.side { background: #dce2e9; }
 .strip.mid  { background: #c9d1da; }
-.wire { position: absolute; background: var(--ink); }
+.wire { position: absolute; background: var(--color-ink); }
 
 .corner { transform-style: preserve-3d; }
 .ball {

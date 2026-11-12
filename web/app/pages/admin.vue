@@ -68,48 +68,48 @@ async function create() {
 </script>
 
 <template>
-  <main class="wrap stack">
+  <UiPage>
     <header>
-      <p class="eyebrow">organiser</p>
+      <UiEyebrow>organiser</UiEyebrow>
       <h1>Dashboard</h1>
-      <p class="muted" style="max-width: 62ch">
+      <p class="max-w-[62ch] text-muted">
         Every draw here commits to its rules before anyone enters, and to its entry list before the
         randomness that decides it exists. Results verify in your own browser.
       </p>
     </header>
 
-    <div v-if="loadError" class="error">
-      {{ loadError }} — is the draw service running? <code class="mono">publicdraw serve</code>
-    </div>
+    <UiCallout v-if="loadError" tone="error">
+      {{ loadError }} — is the draw service running? <code class="font-mono text-[0.85em]">publicdraw serve</code>
+    </UiCallout>
 
-    <section v-if="!token" class="card">
+    <UiCard v-if="!token">
       <h2>Organiser sign-in</h2>
-      <p class="muted" style="font-size: 0.86rem">
+      <p class="text-[0.86rem] text-muted">
         Anyone can read and verify a draw. Running one needs the organiser token.
       </p>
-      <form class="stack" style="gap: 12px" @submit.prevent="enter">
+      <form class="gap-3 flex min-w-0 flex-col *:min-w-0" @submit.prevent="enter">
         <div>
           <label for="token">Organiser token</label>
           <input id="token" v-model="tokenInput" type="password" autocomplete="off" required />
         </div>
-        <div class="row">
-          <button type="submit" :disabled="!tokenInput">Sign in</button>
+        <div class="flex flex-wrap items-center gap-3 *:min-w-0">
+          <UiButton type="submit" :disabled="!tokenInput">Sign in</UiButton>
         </div>
       </form>
-    </section>
+    </UiCard>
 
-    <section v-if="token" class="card">
+    <UiCard v-if="token">
       <h2>New draw</h2>
-      <p class="muted" style="font-size: 0.86rem">
+      <p class="text-[0.86rem] text-muted">
         These parameters are signed and logged now, before a single entry arrives. Changing any of
         them later produces a different draw.
       </p>
-      <form class="stack" style="gap: 12px" @submit.prevent="create">
+      <form class="gap-3 flex min-w-0 flex-col *:min-w-0" @submit.prevent="create">
         <div>
           <label for="title">What is this draw for?</label>
           <input id="title" v-model="form.title" required placeholder="Two community grants" />
         </div>
-        <div class="grid">
+        <div class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3.5">
           <div>
             <label for="winners">Winners</label>
             <input id="winners" v-model.number="form.winners" type="number" min="1" required />
@@ -126,7 +126,7 @@ async function create() {
             </select>
           </div>
         </div>
-        <p class="muted" style="font-size: 0.8rem; margin: 0">
+        <p class="m-0 text-[0.8rem] text-muted">
           <template v-if="form.disclosure === 'private'">
             Entrants confirm their own inclusion with a receipt; nobody else's entry is published.
           </template>
@@ -135,51 +135,48 @@ async function create() {
             entrants would not be harmed by being named.
           </template>
         </p>
-        <div v-if="createError" class="error">{{ createError }}</div>
-        <div class="row">
-          <button type="submit" :disabled="busy || !form.title">
+        <UiCallout v-if="createError" tone="error">{{ createError }}</UiCallout>
+        <div class="flex flex-wrap items-center gap-3 *:min-w-0">
+          <UiButton type="submit" :disabled="busy || !form.title">
             {{ busy ? 'Creating…' : 'Create and commit parameters' }}
-          </button>
+          </UiButton>
         </div>
       </form>
-    </section>
+    </UiCard>
 
-    <div v-if="token" class="row">
-      <button class="ghost" @click="signOut">Sign out</button>
+    <div v-if="token" class="flex flex-wrap items-center gap-3 *:min-w-0">
+      <UiButton variant="ghost" @click="signOut">Sign out</UiButton>
     </div>
 
     <section v-if="token && draws.length">
-      <h2 style="margin-bottom: 12px">All draws</h2>
-      <div class="stack" style="gap: 10px">
-        <NuxtLink v-for="d in draws" :key="d.params.draw_id" :to="drawPath(d.params.draw_id, d.params.title)" class="card drawrow">
-          <div class="spread">
+      <h2 class="mb-3">All draws</h2>
+      <div class="gap-2.5 flex min-w-0 flex-col *:min-w-0">
+        <UiCard
+          v-for="d in draws" :key="d.params.draw_id" :to="drawPath(d.params.draw_id, d.params.title)"
+          class="block text-inherit hover:border-seal hover:no-underline"
+        >
+          <div class="flex flex-wrap items-baseline justify-between gap-4 *:min-w-0">
             <div>
-              <div class="dtitle">{{ d.params.title || 'Untitled draw' }}</div>
-              <div class="muted mono" style="font-size: 0.74rem">{{ d.params.draw_id }}</div>
+              <div class="font-serif text-[1.05rem] font-semibold">{{ d.params.title || 'Untitled draw' }}</div>
+              <div class="font-mono text-[0.74rem] text-muted">{{ d.params.draw_id }}</div>
             </div>
-            <div class="row" style="gap: 10px">
-              <span class="pill" :class="d.state">{{ d.state }}</span>
-              <span class="muted" style="font-size: 0.8rem">
+            <div class="flex flex-wrap items-center gap-2.5 *:min-w-0">
+              <UiPill :tone="d.state">{{ d.state }}</UiPill>
+              <span class="text-[0.8rem] text-muted">
                 {{ d.entry_count }} {{ d.entry_count === 1 ? 'entry' : 'entries' }} ·
                 {{ d.params.winners }} to win · {{ d.params.disclosure }}
               </span>
             </div>
           </div>
-        </NuxtLink>
+        </UiCard>
       </div>
     </section>
 
-    <p v-if="operator" class="muted" style="font-size: 0.78rem">
-      Operator key <code class="mono">{{ operator.public_key.slice(0, 24) }}…</code> ·
+    <p v-if="operator" class="text-[0.78rem] text-muted">
+      Operator key <code class="font-mono text-[0.85em]">{{ operator.public_key.slice(0, 24) }}…</code> ·
       beacon {{ operator.chain.name }} ({{ operator.chain.period_seconds }}s rounds) ·
       <NuxtLink to="/log">log head</NuxtLink>
-      <code class="mono">{{ operator.log_head.slice(0, 16) }}…</code>
+      <code class="font-mono text-[0.85em]">{{ operator.log_head.slice(0, 16) }}…</code>
     </p>
-  </main>
+  </UiPage>
 </template>
-
-<style scoped>
-.drawrow { display: block; color: inherit; }
-.drawrow:hover { text-decoration: none; border-color: var(--seal); }
-.dtitle { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; }
-</style>

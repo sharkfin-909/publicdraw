@@ -119,8 +119,18 @@ bundle and dropping it on `/verify`, which works but is a worse path.
 
 ## Image credit
 
-The hero photograph is by Planet Volumes via Unsplash (`8QeyvEmQO6w`), used
+The hero photograph is by Planet Volumes via Unsplash (`wcDU8ijwm6Y`), used
 under the Unsplash License, which permits commercial use without attribution —
-credited here anyway. Derivatives in `web/public/hero/` are cropped to 4:5
-(and 1.91:1 for the social card) and re-encoded to AVIF, WebP and JPEG at
-three widths; the 881 KB original is not in the repo.
+credited here anyway. Its derivatives in `web/public/hero/` (`ticket-strip-*`)
+keep the photo's own 1.4:1 proportions, since the frame crops it with
+object-fit, and are re-encoded to AVIF, WebP and JPEG at three widths; the
+original is not in the repo.
+
+The social card, `og-tickets.jpg`, is still cut from the earlier photograph
+(`8QeyvEmQO6w`, same photographer and licence), as are the unused `tickets-*`
+files beside it.
+
+The homepage photograph above "How it works" is by Curated Lifestyle via
+Unsplash (`nSf9hpy35Yw`), under the same licence. Its derivatives are in
+`web/public/home/` (`huddle-*`, four widths in each format); the frame crops it
+to a band with object-fit.

@@ -27,37 +27,30 @@ async function copy() {
 </script>
 
 <template>
-  <div class="admissions">
-    <div class="spread">
-      <h3>{{ admitted.length }} admitted — salts shown once</h3>
-      <button class="ghost" @click="copy">{{ copied ? 'Copied' : 'Copy all' }}</button>
+  <div
+    class="mt-3.5 rounded-box border border-beacon bg-beacon-bg px-[18px] py-4
+           [&_td]:border-b-beacon/25 [&_th]:border-b-beacon/25"
+  >
+    <div class="flex flex-wrap items-baseline justify-between gap-4 *:min-w-0">
+      <h3 class="text-beacon">{{ admitted.length }} admitted — salts shown once</h3>
+      <UiButton variant="ghost" @click="copy">{{ copied ? 'Copied' : 'Copy all' }}</UiButton>
     </div>
-    <p class="muted why">
+    <p class="max-w-[62ch] text-[0.82rem] text-beacon opacity-[0.92]">
       Send each entrant their link now. It is what lets them confirm their own inclusion
       after the cutoff, whether or not anything else ever reaches them — an entrant who was quietly
       dropped and never sent a receipt has nothing to notice.
     </p>
-    <div class="scroller">
+    <div class="overflow-x-auto">
       <table>
         <thead><tr><th>#</th><th>Entry</th><th>Link to send</th></tr></thead>
         <tbody>
           <tr v-for="a in admitted" :key="a.index">
-            <td class="mono">{{ a.index }}</td>
-              <td>{{ a.label }}</td>
-              <td class="hash">{{ linkFor(a) }}</td>
+            <td class="font-mono text-[0.85em]">{{ a.index }}</td>
+            <td>{{ a.label }}</td>
+            <td class="font-mono text-[0.78rem] text-muted wrap-anywhere">{{ linkFor(a) }}</td>
           </tr>
         </tbody>
       </table>
     </div>
   </div>
 </template>
-
-<style scoped>
-.admissions {
-  background: var(--beacon-bg); border: 1px solid var(--beacon);
-  border-radius: 3px; padding: 16px 18px; margin-top: 14px;
-}
-.admissions h3 { color: var(--beacon); }
-.why { font-size: 0.82rem; color: var(--beacon); max-width: 62ch; opacity: 0.92; }
-.admissions td, .admissions th { border-bottom-color: color-mix(in srgb, var(--beacon) 25%, transparent); }
-</style>

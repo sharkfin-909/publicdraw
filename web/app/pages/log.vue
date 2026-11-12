@@ -43,76 +43,73 @@ onMounted(load)
 </script>
 
 <template>
-  <main class="wrap stack">
+  <UiPage>
     <header>
-      <p class="eyebrow">append-only</p>
+      <UiEyebrow>append-only</UiEyebrow>
       <h1>Transparency log</h1>
-      <p class="muted" style="max-width: 62ch">
+      <p class="max-w-[62ch] text-muted">
         Every draw's creation, cutoff and result, chained so that editing or removing any record
         breaks everything after it. This is the only place a draw that was run and quietly
         abandoned can show up.
       </p>
     </header>
 
-    <div v-if="err" class="error">{{ err }}</div>
+    <UiCallout v-if="err" tone="error">{{ err }}</UiCallout>
 
-    <section v-if="chain" class="card">
-      <div class="spread">
+    <UiCard v-if="chain">
+      <div class="flex flex-wrap items-baseline justify-between gap-4 *:min-w-0">
         <h2>Chain</h2>
-        <span class="pill" :class="chain.ok ? 'drawn' : 'open'">
+        <UiPill :tone="chain.ok ? 'drawn' : 'open'">
           {{ chain.ok ? 'replays cleanly' : 'broken' }}
-        </span>
+        </UiPill>
       </div>
-      <p class="muted" style="font-size: 0.85rem; margin-top: 8px">
+      <p class="mt-2 text-[0.85rem] text-muted">
         <template v-if="chain.ok">
           Replayed from genesis in your browser: {{ records.length }} records, arriving at the head
           the server reports.
         </template>
         <template v-else>{{ chain.error }}</template>
       </p>
-      <p class="hash">head {{ head }}</p>
-      <p
-        v-if="chain.ok && chain.head !== head"
-        class="notice"
-      >
+      <p class="font-mono text-[0.78rem] text-muted wrap-anywhere">head {{ head }}</p>
+      <UiCallout v-if="chain.ok && chain.head !== head" as="p">
         The replayed head does not match the head the server published.
-      </p>
-    </section>
+      </UiCallout>
+    </UiCard>
 
-    <section v-if="abandoned.length" class="card" style="border-color: var(--beacon)">
-      <h2 style="color: var(--beacon)">
+    <UiCard v-if="abandoned.length" class="border-beacon!">
+      <h2 class="text-beacon">
         {{ abandoned.length }} draw{{ abandoned.length === 1 ? '' : 's' }} with no published result
       </h2>
-      <p class="muted" style="font-size: 0.85rem">
+      <p class="text-[0.85rem] text-muted">
         Created, and their round has since published, but no result was ever recorded. This is not
         proof of misconduct — draws get cancelled for honest reasons — but a draw run repeatedly
         until the organiser liked the winner could only look like this.
       </p>
-      <ul class="mono" style="font-size: 0.8rem">
+      <ul class="list-disc pl-10 font-mono text-[0.8rem]">
         <li v-for="d in abandoned" :key="d">
           <NuxtLink :to="`/draws/${d}`">{{ d }}</NuxtLink>
         </li>
       </ul>
-    </section>
+    </UiCard>
 
-    <section v-if="records.length" class="card">
-      <h2 style="margin-bottom: 12px">{{ records.length }} records</h2>
-      <div class="scroller">
+    <UiCard v-if="records.length">
+      <h2 class="mb-3">{{ records.length }} records</h2>
+      <div class="overflow-x-auto">
         <table>
           <thead>
             <tr><th>#</th><th>Event</th><th>Draw</th><th>Logged</th><th>Head</th></tr>
           </thead>
           <tbody>
             <tr v-for="r in records" :key="r.seq">
-              <td class="mono">{{ r.seq }}</td>
+              <td class="font-mono text-[0.85em]">{{ r.seq }}</td>
               <td>{{ kindLabel[r.kind] ?? r.kind }}</td>
-              <td class="mono"><NuxtLink :to="`/draws/${r.draw_id}`">{{ r.draw_id.slice(0, 12) }}…</NuxtLink></td>
-              <td class="muted">{{ fmtTime(r.logged_at) }}</td>
-              <td class="hash">{{ r.head.slice(0, 12) }}…</td>
+              <td class="font-mono text-[0.85em]"><NuxtLink :to="`/draws/${r.draw_id}`">{{ r.draw_id.slice(0, 12) }}…</NuxtLink></td>
+              <td class="text-muted">{{ fmtTime(r.logged_at) }}</td>
+              <td class="font-mono text-[0.78rem] text-muted wrap-anywhere">{{ r.head.slice(0, 12) }}…</td>
             </tr>
           </tbody>
         </table>
       </div>
-    </section>
-  </main>
+    </UiCard>
+  </UiPage>
 </template>

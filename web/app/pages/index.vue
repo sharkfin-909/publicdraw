@@ -1,125 +1,146 @@
-
-
 <template>
-  <main class="wrap stack home">
-    <section class="hero">
-      <div class="hero-copy">
-        <p class="eyebrow">verifiable random selection</p>
+  <UiPage roomy>
+    <section class="grid grid-cols-2 items-stretch gap-10 max-[760px]:grid-cols-1 max-[760px]:gap-[22px]">
+      <div class="flex min-w-0 flex-col justify-end">
+        <UiEyebrow>verifiable random selection</UiEyebrow>
         <h1>Public Draws. Fair and square.</h1>
-        <p class="lede">
+        <p class="mb-0 font-serif text-[1.22rem] leading-normal text-muted">
 	When opportunities or resources need to be distributed fairly amongst a group of people, Publicdraw solves that problem.</p>
-	<p class="lede">
-
+        <p class="mt-3.5 mb-0 font-serif text-[1.22rem] leading-normal text-muted">
+          No one can steer the result, and anyone can check it.
         </p>
       </div>
 
       <!--
-        Photograph by Planet Volumes via Unsplash (8QeyvEmQO6w), used under the
-        Unsplash License. Cropped to 4:5 and re-encoded; see web/README.md.
+        Photograph by Planet Volumes via Unsplash (wcDU8ijwm6Y), used under the
+        Unsplash License. Resized and re-encoded at its own 1.4:1 proportions; the
+        frame crops it with object-fit. See web/README.md.
       -->
-      <figure class="hero-art">
+      <figure class="m-0 flex min-w-0 flex-col max-[760px]:-order-1">
         <!--
           Eager and high priority: this is the largest element above the fold,
           so it is the LCP candidate, and a hero that arrives late is the usual
           reason that metric fails. Width and height are set so the box is
           reserved before the bytes land and nothing shifts.
         -->
-        <picture class="frame">
+        <picture class="block min-h-0 flex-1 max-[760px]:flex-none">
           <source
             type="image/avif"
-            srcset="/hero/tickets-640.avif 640w, /hero/tickets-960.avif 960w, /hero/tickets-1280.avif 1280w"
+            srcset="/hero/ticket-strip-640.avif 640w, /hero/ticket-strip-960.avif 960w, /hero/ticket-strip-1280.avif 1280w"
             sizes="(max-width: 760px) calc(100vw - 40px), 420px"
           />
           <source
             type="image/webp"
-            srcset="/hero/tickets-640.webp 640w, /hero/tickets-960.webp 960w, /hero/tickets-1280.webp 1280w"
+            srcset="/hero/ticket-strip-640.webp 640w, /hero/ticket-strip-960.webp 960w, /hero/ticket-strip-1280.webp 1280w"
             sizes="(max-width: 760px) calc(100vw - 40px), 420px"
           />
+          <!-- Toned down so the photo sits quietly on the sky-blue ground, with
+               the same faint lift as the cards. -->
           <img
-            src="/hero/tickets-960.jpg"
-            srcset="/hero/tickets-640.jpg 640w, /hero/tickets-960.jpg 960w, /hero/tickets-1280.jpg 1280w"
+            src="/hero/ticket-strip-960.jpg"
+            srcset="/hero/ticket-strip-640.jpg 640w, /hero/ticket-strip-960.jpg 960w, /hero/ticket-strip-1280.jpg 1280w"
             sizes="(max-width: 760px) calc(100vw - 40px), 420px"
             width="1280"
-            height="1600"
-            alt="Raffle tickets falling through the air, each one printed “keep this ticket”"
+            height="914"
+            alt="Strips of raffle tickets curling through the air, printed “ticket” and “keep this ticket”"
             fetchpriority="high"
             decoding="async"
+            class="block size-full max-h-[344px] rounded-box border border-line object-cover shadow-card saturate-55
+                   max-[760px]:aspect-[16/10] max-[760px]:h-auto max-[760px]:max-h-none"
           />
         </picture>
       </figure>
     </section>
 
-<section class="grid three">
+<section class="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-7">
 	<div class="">
-  <div class="card">
-    <FeatureIcon name="crowd" />
-    <h2>Examples</h2>
-    <p>
-
-	Examples are music or sports event ticket allocation, or housing allocation in a suburban area.
-    </p>
+  <!-- Icon and title sit above their card, not inside it. -->
+  <div class="mb-3 text-center">
+    <FeatureIcon name="tickets" raised />
+    <h2 class="text-[1.05rem]">Examples</h2>
   </div>
-  <div class="card">
-    <FeatureIcon name="cog" tone="beacon" />
-    <h2>How it works</h2>
-    <p>
-Anyone may sign up and create a draw. Entrants then need to enter the draw before it takes place. This is because  the 'operator' user is not allowed to change the draw time as he may be able to manipulate the outcome that way.
+  <UiCard as="div">
+    <p class="mb-2 text-[0.9rem]">
+      Whenever there are more people than places, and everyone needs to trust the choice was fair:
     </p>
+    <ul class="m-0 list-disc pl-5 text-[0.9rem]">
+      <li>Tickets for a sold-out gig or match</li>
+      <li>Homes in a new affordable housing development</li>
+      <li>Places at a popular school, club or course</li>
+      <li>Community grants, prizes and giveaways</li>
+    </ul>
+  </UiCard>
+  <!--
+    Photograph by Curated Lifestyle via Unsplash (nSf9hpy35Yw), used under the
+    Unsplash License. Below the fold, so it loads lazily; cropped to a band
+    by object-fit, held a little above centre to keep the faces in frame.
+  -->
+  <figure class="m-0 mt-4">
+    <picture>
+      <source
+        type="image/avif"
+        srcset="/home/huddle-640.avif 640w, /home/huddle-960.avif 960w, /home/huddle-1280.avif 1280w, /home/huddle-1760.avif 1760w"
+        sizes="(max-width: 760px) calc(100vw - 40px), 880px"
+      />
+      <source
+        type="image/webp"
+        srcset="/home/huddle-640.webp 640w, /home/huddle-960.webp 960w, /home/huddle-1280.webp 1280w, /home/huddle-1760.webp 1760w"
+        sizes="(max-width: 760px) calc(100vw - 40px), 880px"
+      />
+      <img
+        src="/home/huddle-960.jpg"
+        srcset="/home/huddle-640.jpg 640w, /home/huddle-960.jpg 960w, /home/huddle-1280.jpg 1280w, /home/huddle-1760.jpg 1760w"
+        sizes="(max-width: 760px) calc(100vw - 40px), 880px"
+        width="1760"
+        height="1174"
+        alt="A group of people standing close together, arms around one another’s shoulders"
+        loading="lazy"
+        decoding="async"
+        class="block aspect-[5/2] w-full rounded-box border border-line object-cover object-[50%_40%] shadow-card max-[760px]:aspect-[4/3]"
+      />
+    </picture>
+  </figure>
+  <div class="mt-8 mb-3 text-center">
+    <FeatureIcon name="cog" tone="beacon" raised />
+    <h2 class="text-[1.05rem]">How it works</h2>
   </div>
-        <div class="row" style="margin-top: 22px">
-          <NuxtLink to="/draws" class="btn">See published draws</NuxtLink>
-          <NuxtLink to="/verify" class="btn ghost">Verify a result</NuxtLink>
+  <UiCard as="div">
+    <ol class="m-0 list-decimal space-y-1.5 pl-5 text-[0.9rem]">
+      <li>
+        <strong>The rules are set.</strong> The organiser chooses how many winners there will be
+        and when entries close. These are locked in straight away, before anyone enters.
+      </li>
+      <li>
+        <strong>People enter.</strong> Each person gets their own link, which they can keep and
+        use later to check they were included.
+      </li>
+      <li>
+        <strong>Entries close.</strong> The list of entrants is sealed. From this moment nobody,
+        not even the organiser, can add or remove anyone.
+      </li>
+      <li>
+        <strong>A random number picks the winners.</strong> A few seconds later, a group of
+        independent organisations publishes a random number. Nobody could know it in advance, so
+        nobody could have planned around it.
+      </li>
+      <li>
+        <strong>Anyone can check.</strong> The result comes with everything needed to confirm it
+        was done fairly, and you can check it yourself in your browser.
+      </li>
+    </ol>
+    <p class="mt-3 mb-0 text-[0.9rem]">
+      <NuxtLink to="/technical">The technical details →</NuxtLink>
+    </p>
+  </UiCard>
+        <!-- The two calls to action split the column evenly. -->
+        <div class="mt-[22px] grid grid-cols-2 gap-3">
+          <UiButton to="/draws" class="text-center">See published draws</UiButton>
+          <UiButton to="/verify" variant="ghost" class="text-center">Verify a result</UiButton>
         </div>
   </div>
 </section>
 
-    <section class="grid four">
-      <div class="card">
-        <FeatureIcon name="stamp" />
-        <h2>Committed before, not after</h2>
-        <p>
-          The rules are signed before anyone enters. The entry list is signed at the cutoff, while
-          the deciding number still does not exist. An organiser who could freeze the list after
-          seeing the randomness could pick the winner — so the ordering is what carries the
-          guarantee, and every result is checked against it.
-        </p>
-      </div>
-      <div class="card">
-        <FeatureIcon name="radio-tower" tone="beacon" />
-        <h2>Randomness nobody chose</h2>
-        <p>
-          The deciding number comes from
-          <a href="https://drand.love" rel="noopener">drand</a>, a public beacon run by
-          independent organisations including Cloudflare and EPFL. No single party can predict it,
-          and — because the signature scheme is deterministic — none can influence it either.
-        </p>
-      </div>
-      <div class="card">
-        <FeatureIcon name="laptop-check" />
-        <h2>Checked in your browser</h2>
-        <p>
-          Verification runs on your machine against a key pinned in the page, not on ours. An
-          answer about whether a draw was honest is worth nothing when it comes from the people
-          who ran it.
-        </p>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>What it does not prove</h2>
-      <p>
-        Worth stating plainly, because someone will find it otherwise. Receipts catch an entrant
-        being dropped; they do not catch a list padded with entries that were never real.
-        Timestamps are the operator's word until the log is anchored externally. And whether
-        everyone who should have been able to enter was told the draw existed is outside what any
-        of this can see.
-      </p>
-      <p style="margin-bottom: 0">
-        <NuxtLink to="/log">The transparency log</NuxtLink> covers the one remaining gap a single
-        result cannot: whether a draw was run repeatedly until the organiser liked the answer.
-      </p>
-    </section>
-  </main>
+  </UiPage>
 </template>
 
 <script setup lang="ts">
@@ -140,10 +161,10 @@ useHead({
       rel: 'preload',
       as: 'image',
       type: 'image/avif',
-      href: '/hero/tickets-960.avif',
+      href: '/hero/ticket-strip-960.avif',
       imagesrcset:
-        '/hero/tickets-640.avif 640w, /hero/tickets-960.avif 960w, /hero/tickets-1280.avif 1280w',
-      imagesizes: '(max-width: 760px) calc(100vw - 40px), 352px',
+        '/hero/ticket-strip-640.avif 640w, /hero/ticket-strip-960.avif 960w, /hero/ticket-strip-1280.avif 1280w',
+      imagesizes: '(max-width: 760px) calc(100vw - 40px), 420px',
       fetchpriority: 'high',
     },
   ],
@@ -163,65 +184,3 @@ useHead({
   ],
 })
 </script>
-<style scoped>
-/*
-  No band. The page ground and the photograph's paper are the same cream, so
-  the hero is simply the top of the page and the image dissolves into it.
-  That is what the feather was always for; on the old dark band there was
-  nothing to dissolve into and it had to be switched off.
-*/
-.home { gap: 40px; }
-
-.hero {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 40px;
-  align-items: stretch;
-  min-width: 0;
-}
-.hero-copy { min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; }
-.hero .eyebrow { color: var(--seal); }
-.lede {
-  font-family: var(--serif); font-size: 1.22rem; line-height: 1.5;
-  color: var(--muted); margin-bottom: 0;
-}
-
-.hero-art { margin: 0; min-width: 0; display: flex; flex-direction: column; }
-/*
-  No feather. The page ground and the photograph's paper are the same cream,
-  so the join is already invisible where it matters, and the gradient that was
-  meant to soften it cost three separate bugs — a mask that erased the image,
-  stops that never engaged, then stops that washed it out. Not worth it.
-*/
-.hero-art .frame { display: block; flex: 1; min-height: 0; }
-.hero-art img {
-  display: block; width: 100%; height: 100%;
-  max-height: 344px;
-  object-fit: cover;
-  border-radius: 3px;
-  /* Toned down so the warm photo sits on the cool sky-blue ground. */
-  filter: saturate(0.55);
-  /* The same faint lift as the cards. */
-  box-shadow: 0 1px 2px rgba(15, 22, 32, 0.04), 0 6px 16px rgba(15, 22, 32, 0.05);
-}
-
-.grid.three { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 28px; }
-.grid .card h2 { font-size: 1.05rem; margin-bottom: 8px; }
-.grid .card p { font-size: 0.9rem; margin: 0; }
-
-.btn {
-  display: inline-block; font-weight: 600; font-size: 0.88rem;
-  padding: 10px 18px; border-radius: 3px;
-  background: var(--seal); color: #ffffff; border: 1px solid var(--seal);
-}
-.btn:hover { text-decoration: none; filter: brightness(1.12); }
-.btn.ghost { background: transparent; color: var(--seal); }
-
-@media (max-width: 760px) {
-  .home { gap: 28px; }
-  .hero { grid-template-columns: 1fr; gap: 22px; }
-  .hero-art { order: -1; }
-  .hero-art .frame { flex: none; }
-  .hero-art img { aspect-ratio: 16 / 10; height: auto; max-height: none; }
-}
-</style>

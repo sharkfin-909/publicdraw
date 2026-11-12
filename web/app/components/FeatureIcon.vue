@@ -5,7 +5,12 @@
  * pulls nothing extra.
  */
 const props = withDefaults(
-  defineProps<{ name: 'stamp' | 'radio-tower' | 'laptop-check'; tone?: 'seal' | 'beacon' }>(),
+  defineProps<{
+    name: 'stamp' | 'radio-tower' | 'laptop-check' | 'tickets' | 'cog'
+    tone?: 'seal' | 'beacon'
+    /** On the page rather than in a card: a white, bordered tile, as the cards are. */
+    raised?: boolean
+  }>(),
   { tone: 'seal' },
 )
 
@@ -26,11 +31,29 @@ const paths: Record<typeof props.name, string> = {
     '<path d="M2 20h20"/>' +
     '<path d="m9 10 2 2 4-4"/>' +
     '<rect x="3" y="4" width="18" height="12" rx="2"/>',
+  tickets:
+    '<path d="m3.173 8.18 11-5a2 2 0 0 1 2.647.993L18.56 8"/>' +
+    '<path d="M6 10V8"/><path d="M6 14v1"/><path d="M6 19v2"/>' +
+    '<rect x="2" y="8" width="20" height="13" rx="2"/>',
+  cog:
+    '<path d="M11 10.27 7 3.34"/><path d="m11 13.73-4 6.93"/>' +
+    '<path d="M12 22v-2"/><path d="M12 2v2"/><path d="M14 12h8"/>' +
+    '<path d="m17 20.66-1-1.73"/><path d="m17 3.34-1 1.73"/><path d="M2 12h2"/>' +
+    '<path d="m20.66 17-1.73-1"/><path d="m20.66 7-1.73 1"/>' +
+    '<path d="m3.34 17 1.73-1"/><path d="m3.34 7 1.73 1"/>' +
+    '<circle cx="12" cy="12" r="2"/><circle cx="12" cy="12" r="8"/>',
 }
 </script>
 
 <template>
-  <span class="feature-icon" :class="tone" aria-hidden="true">
+  <span
+    class="mx-auto mb-3.5 grid size-[52px] place-items-center rounded-box"
+    :class="[
+      tone === 'beacon' ? 'text-beacon' : 'text-seal',
+      raised ? 'border border-line bg-raised shadow-card' : tone === 'beacon' ? 'bg-beacon-bg' : 'bg-seal-bg',
+    ]"
+    aria-hidden="true"
+  >
     <svg
       viewBox="0 0 24 24" width="28" height="28"
       fill="none" stroke="currentColor" stroke-width="1.5"
@@ -39,13 +62,3 @@ const paths: Record<typeof props.name, string> = {
     />
   </span>
 </template>
-
-<style scoped>
-.feature-icon {
-  display: grid; place-items: center;
-  width: 52px; height: 52px; border-radius: 3px;
-  margin: 0 auto 14px;
-}
-.feature-icon.seal   { color: var(--seal);   background: var(--seal-bg); }
-.feature-icon.beacon { color: var(--beacon); background: var(--beacon-bg); }
-</style>

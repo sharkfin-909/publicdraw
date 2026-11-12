@@ -17,45 +17,39 @@ useSeo({
 </script>
 
 <template>
-  <main class="wrap stack">
+  <UiPage>
     <header>
-      <p class="eyebrow">directory</p>
+      <UiEyebrow>directory</UiEyebrow>
       <h1>Published draws</h1>
-      <p class="muted" style="max-width: 62ch">
+      <p class="max-w-[62ch] text-muted">
         Only draws whose organiser chose to publish them appear here. Most draws are unlisted by
         default — a ballot for housing or school places names real people, and has no business in
         a search index.
       </p>
     </header>
 
-    <div v-if="error" class="error">Could not load the directory.</div>
+    <UiCallout v-if="error" tone="error">Could not load the directory.</UiCallout>
 
-    <p v-else-if="!draws.length" class="muted">No published draws yet.</p>
+    <p v-else-if="!draws.length" class="text-muted">No published draws yet.</p>
 
-    <div v-else class="stack" style="gap: 10px">
-      <NuxtLink
+    <div v-else class="flex min-w-0 flex-col gap-2.5 *:min-w-0">
+      <UiCard
         v-for="d in draws"
         :key="d.draw_id"
         :to="drawPath(d.draw_id, d.title)"
-        class="card drawrow"
+        class="block text-inherit hover:border-seal hover:no-underline"
       >
-        <div class="spread">
+        <div class="flex flex-wrap items-baseline justify-between gap-4 *:min-w-0">
           <div>
-            <div class="dtitle">{{ d.title || 'Untitled draw' }}</div>
-            <div class="muted" style="font-size: 0.8rem">
+            <div class="font-serif text-[1.08rem] font-semibold">{{ d.title || 'Untitled draw' }}</div>
+            <div class="text-[0.8rem] text-muted">
               {{ d.winners }} to win from {{ d.entry_count }} ·
               {{ d.disclosure }} entry list
             </div>
           </div>
-          <span class="pill" :class="d.state">{{ d.state }}</span>
+          <UiPill :tone="d.state">{{ d.state }}</UiPill>
         </div>
-      </NuxtLink>
+      </UiCard>
     </div>
-  </main>
+  </UiPage>
 </template>
-
-<style scoped>
-.drawrow { display: block; color: inherit; }
-.drawrow:hover { text-decoration: none; border-color: var(--seal); }
-.dtitle { font-family: var(--serif); font-size: 1.08rem; font-weight: 600; }
-</style>

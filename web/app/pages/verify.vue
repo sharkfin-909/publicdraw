@@ -47,56 +47,52 @@ function onDrop(ev: DragEvent) {
 </script>
 
 <template>
-  <main class="wrap stack">
+  <UiPage>
     <header>
-      <p class="eyebrow">independent check</p>
+      <UiEyebrow>independent check</UiEyebrow>
       <h1>Verify a bundle</h1>
-      <p class="muted" style="max-width: 62ch">
+      <p class="max-w-[62ch] text-muted">
         This runs entirely in your browser, against a drand group key pinned in the page source.
         Nothing is sent anywhere, and no server is asked whether the draw was honest — which is the
         only reason the answer is worth having.
       </p>
     </header>
 
-    <section class="card drop" @dragover.prevent @drop.prevent="onDrop">
-      <div class="row">
+    <UiCard class="border-dashed" @dragover.prevent @drop.prevent="onDrop">
+      <div class="flex flex-wrap items-center gap-3 *:min-w-0">
         <input type="file" accept="application/json,.json" @change="onFile" />
-        <button class="ghost" :disabled="!raw" @click="check(raw)">Check pasted JSON</button>
+        <UiButton variant="ghost" :disabled="!raw" @click="check(raw)">Check pasted JSON</UiButton>
       </div>
-      <label for="raw" style="margin-top: 14px">…or paste the bundle</label>
+      <label for="raw" class="mt-3.5">…or paste the bundle</label>
       <textarea id="raw" v-model="raw" placeholder="{ &quot;version&quot;: 1, … }" />
-      <p class="muted" style="font-size: 0.8rem; margin: 8px 0 0">
-        Drop a <code class="mono">bundle.json</code> anywhere on this panel.
+      <p class="mt-2 mb-0 text-[0.8rem] text-muted">
+        Drop a <code class="font-mono text-[0.85em]">bundle.json</code> anywhere on this panel.
       </p>
-    </section>
+    </UiCard>
 
-    <div v-if="err" class="error">Could not read that bundle: {{ err }}</div>
+    <UiCallout v-if="err" tone="error">Could not read that bundle: {{ err }}</UiCallout>
 
-    <section v-if="report && bundle" class="card">
-      <div class="spread" style="margin-bottom: 4px">
+    <UiCard v-if="report && bundle">
+      <div class="mb-1 flex flex-wrap items-baseline justify-between gap-4 *:min-w-0">
         <h2>{{ bundle.draw.params.title || 'Untitled draw' }}</h2>
-        <span class="pill" :class="report.ok ? 'drawn' : 'open'">
+        <UiPill :tone="report.ok ? 'drawn' : 'open'">
           {{ report.ok ? 'verified' : 'failed' }}
-        </span>
+        </UiPill>
       </div>
-      <p class="hash">{{ bundle.draw.params.draw_id }}</p>
+      <p class="font-mono text-[0.78rem] text-muted wrap-anywhere">{{ bundle.draw.params.draw_id }}</p>
 
-      <ol v-if="bundle.result.winners.length" class="winners">
-        <li v-for="w in bundle.result.winners" :key="w.index">
-          <span class="wrank">{{ w.rank }}</span>
+      <ol v-if="bundle.result.winners.length" class="mt-3 mb-[18px]">
+        <li
+          v-for="w in bundle.result.winners" :key="w.index"
+          class="flex items-baseline gap-3 border-b border-rule py-[7px]"
+        >
+          <span class="rounded-[10px] bg-seal px-2 py-0.5 font-mono text-[0.7rem] text-surface">{{ w.rank }}</span>
           <span>{{ w.entry.label }}</span>
-          <span class="muted mono">#{{ w.index }}</span>
+          <span class="font-mono text-[0.85em] text-muted">#{{ w.index }}</span>
         </li>
       </ol>
 
       <CheckList :report="report" />
-    </section>
-  </main>
+    </UiCard>
+  </UiPage>
 </template>
-
-<style scoped>
-.drop { border-style: dashed; }
-.winners { list-style: none; padding: 0; margin: 12px 0 18px; }
-.winners li { display: flex; gap: 12px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--rule); }
-.wrank { font-family: var(--mono); font-size: 0.7rem; color: var(--surface); background: var(--seal); border-radius: 10px; padding: 2px 8px; }
-</style>

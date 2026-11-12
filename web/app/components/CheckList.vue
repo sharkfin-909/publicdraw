@@ -6,53 +6,35 @@ defineProps<{ report: Report }>()
 
 <template>
   <div>
-    <ul class="checks">
-      <li v-for="c in report.checks" :key="c.name">
-        <span class="tag" :class="c.skipped ? 'skip' : c.ok ? 'ok' : 'fail'">
+    <ul>
+      <li
+        v-for="c in report.checks" :key="c.name"
+        class="grid grid-cols-[52px_minmax(0,1fr)_minmax(0,auto)] items-baseline gap-3 border-b border-rule py-[7px]
+               text-[0.87rem] max-[620px]:grid-cols-[52px_1fr]"
+      >
+        <span
+          class="rounded-[2px] py-0.5 text-center font-mono text-[0.66rem] tracking-[0.06em]"
+          :class="c.skipped ? 'bg-beacon-bg text-beacon' : c.ok ? 'bg-seal-bg text-seal' : 'bg-fault-bg text-fault'"
+        >
           {{ c.skipped ? 'skip' : c.ok ? 'ok' : 'FAIL' }}
         </span>
-        <span class="name">{{ c.name }}</span>
-        <span class="detail">{{ c.detail }}</span>
+        <span>{{ c.name }}</span>
+        <span class="text-right font-mono text-[0.74rem] text-faint max-[620px]:col-start-2 max-[620px]:text-left">
+          {{ c.detail }}
+        </span>
       </li>
     </ul>
 
-    <p v-if="report.ok" class="verdict pass">
+    <p v-if="report.ok" class="mt-4 mb-0 text-[0.92rem] font-semibold text-seal">
       Verified in your browser. Nothing here was taken on the organiser's word.
     </p>
-    <p v-else class="verdict fail">
+    <p v-else class="mt-4 mb-0 text-[0.92rem] font-semibold text-fault">
       Failed — this bundle does not prove what it claims.
     </p>
 
-    <p v-if="report.skipped" class="muted footnote">
+    <p v-if="report.skipped" class="mt-1.5 mb-0 text-[0.8rem] text-muted">
       {{ report.skipped }} check{{ report.skipped === 1 ? '' : 's' }} skipped. A skipped check is
       not a passed one; the reason is on the line.
     </p>
   </div>
 </template>
-
-<style scoped>
-.checks { list-style: none; padding: 0; margin: 0; }
-.checks li {
-  display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) minmax(0, auto);
-  gap: 12px; align-items: baseline;
-  padding: 7px 0; border-bottom: 1px solid var(--rule);
-  font-size: 0.87rem;
-}
-.tag {
-  font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.06em;
-  padding: 2px 0; border-radius: 2px; text-align: center;
-}
-.tag.ok   { background: var(--seal-bg);  color: var(--seal); }
-.tag.skip { background: var(--beacon-bg); color: var(--beacon); }
-.tag.fail { background: var(--fault-bg); color: var(--fault); }
-.detail { font-family: var(--mono); font-size: 0.74rem; color: var(--faint); text-align: right; }
-.verdict { margin: 16px 0 0; font-weight: 600; font-size: 0.92rem; }
-.verdict.pass { color: var(--seal); }
-.verdict.fail { color: var(--fault); }
-.footnote { font-size: 0.8rem; margin: 6px 0 0; }
-@media (max-width: 620px) {
-  .checks li { grid-template-columns: 52px 1fr; }
-  .detail { grid-column: 2; text-align: left; }
-}
-</style>

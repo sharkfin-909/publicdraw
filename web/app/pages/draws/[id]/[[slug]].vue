@@ -177,17 +177,17 @@ onMounted(() => {
 </script>
 
 <template>
-  <main class="wrap stack">
-    <div v-if="err" class="error">{{ err }}</div>
+  <UiPage>
+    <UiCallout v-if="err" tone="error">{{ err }}</UiCallout>
 
     <template v-if="draw">
       <header>
-        <p class="eyebrow">{{ draw.params.disclosure }} draw</p>
-        <div class="spread">
+        <UiEyebrow>{{ draw.params.disclosure }} draw</UiEyebrow>
+        <div class="flex flex-wrap items-baseline justify-between gap-4 *:min-w-0">
           <h1>{{ draw.params.title || 'Untitled draw' }}</h1>
-          <span class="pill" :class="draw.state">{{ draw.state }}</span>
+          <UiPill :tone="draw.state">{{ draw.state }}</UiPill>
         </div>
-        <p class="hash">{{ draw.params.draw_id }}</p>
+        <p class="font-mono text-[0.78rem] text-muted wrap-anywhere">{{ draw.params.draw_id }}</p>
       </header>
 
       <RoundCountdown
@@ -196,9 +196,9 @@ onMounted(() => {
         :frozen-at="draw.roster_commit?.committed_at"
       />
 
-      <section class="card">
+      <UiCard>
         <h2>What was committed, and when</h2>
-        <dl class="kv" style="margin-top: 12px">
+        <UiKeyValues class="mt-3">
           <dt>Parameters signed</dt>
           <dd>{{ fmtTime(draw.params.created_at) }}</dd>
           <dt>Entries close</dt>
@@ -211,86 +211,89 @@ onMounted(() => {
           <dd>{{ draw.params.winners }} of {{ draw.roster_commit?.size ?? draw.entry_count }}</dd>
           <dt v-if="draw.roster_commit">Roster root</dt>
           <dd v-if="draw.roster_commit">{{ draw.roster_commit.root }}</dd>
-        </dl>
-      </section>
+        </UiKeyValues>
+      </UiCard>
 
       <!-- Entries, while they are open -->
-      <section v-if="token && draw.state === 'open'" class="card">
+      <UiCard v-if="token && draw.state === 'open'">
         <h2>Entries</h2>
-        <p class="muted" style="font-size: 0.86rem">
+        <p class="text-[0.86rem] text-muted">
           {{ draw.entry_count }} so far. Entering is not committing — the list is only frozen at the
           cutoff, and nothing before that point is tamper-evident.
         </p>
         <template v-if="!cutoffPassed">
           <label for="entries">One entry per line</label>
           <textarea id="entries" v-model="entriesText" placeholder="alice@example.com&#10;bob@example.com" />
-          <div class="row" style="margin-top: 10px">
-            <button :disabled="busy === 'enter'" @click="addEntries">
+          <div class="mt-2.5 flex flex-wrap items-center gap-3 *:min-w-0">
+            <UiButton :disabled="busy === 'enter'" @click="addEntries">
               {{ busy === 'enter' ? 'Adding…' : 'Add entries' }}
-            </button>
+            </UiButton>
           </div>
           <AdmissionList v-if="admitted.length" :admitted="admitted" :draw-id="id" />
         </template>
-        <div v-else class="notice" style="margin-top: 10px">
+        <UiCallout v-else class="mt-2.5">
           <template v-if="tooFewEntries">
             The cutoff passed with too few entries for {{ draw.params.winners }}
             {{ draw.params.winners === 1 ? 'winner' : 'winners' }}, so this draw cannot be completed.
           </template>
           <template v-else>Entries are closed. Freezing the roster…</template>
-        </div>
-      </section>
+        </UiCallout>
+      </UiCard>
 
       <!-- Committed, waiting for the round -->
-      <section v-if="token && draw.state === 'committed'" class="card">
+      <UiCard v-if="token && draw.state === 'committed'">
         <h2>Roster frozen</h2>
-        <p class="muted" style="font-size: 0.86rem">
+        <p class="text-[0.86rem] text-muted">
           {{ draw.roster_commit?.size }} entries, signed and written to the public log. The deciding
           number does not exist yet.
         </p>
-        <div class="row">
-          <button :disabled="!published || busy === 'run'" @click="run">
+        <div class="flex flex-wrap items-center gap-3 *:min-w-0">
+          <UiButton :disabled="!published || busy === 'run'" @click="run">
             {{ busy === 'run' ? 'Drawing…' : published ? 'Draw the winners' : 'Waiting for the round' }}
-          </button>
+          </UiButton>
         </div>
-      </section>
+      </UiCard>
 
       <!-- Result -->
-      <section v-if="bundle" class="card">
+      <UiCard v-if="bundle">
         <h2>Result</h2>
-        <ol class="winners">
-          <li v-for="w in bundle.result.winners" :key="w.index">
-            <span class="wrank">{{ w.rank }}</span>
-            <span class="wlabel">{{ w.entry.label }}</span>
-            <span class="muted mono">#{{ w.index }}</span>
+        <ol class="my-3">
+          <li
+            v-for="w in bundle.result.winners" :key="w.index"
+            class="flex items-baseline gap-3.5 border-b border-rule py-[9px]"
+          >
+            <span class="flex-none rounded-[10px] bg-seal px-[9px] py-0.5 font-mono text-[0.72rem] text-surface">{{ w.rank }}</span>
+            <span class="flex-1 font-medium break-all">{{ w.entry.label }}</span>
+            <span class="font-mono text-[0.85em] text-muted">#{{ w.index }}</span>
           </li>
         </ol>
-        <p v-if="bundle.result.waitlist.length" class="muted" style="font-size: 0.82rem">
+        <p v-if="bundle.result.waitlist.length" class="text-[0.82rem] text-muted">
           Waitlist, already in order:
-          <span class="mono">{{ bundle.result.waitlist.slice(0, 12).map((i) => `#${i}`).join(' ') }}</span>
+          <span class="font-mono text-[0.85em]">{{ bundle.result.waitlist.slice(0, 12).map((i) => `#${i}`).join(' ') }}</span>
           <template v-if="bundle.result.waitlist.length > 12"> …</template>
         </p>
-        <p class="hash" style="margin-top: 10px">seed {{ bundle.result.seed }}</p>
-      </section>
+        <p class="mt-2.5 font-mono text-[0.78rem] text-muted wrap-anywhere">seed {{ bundle.result.seed }}</p>
+      </UiCard>
 
-      <section v-if="report" class="card">
-        <div class="spread" style="margin-bottom: 12px">
+      <UiCard v-if="report">
+        <div class="mb-3 flex flex-wrap items-baseline justify-between gap-4 *:min-w-0">
           <h2>Verification</h2>
-          <a :href="`${$config.public.apiBase}/draws/${id}/bundle`" download class="mono" style="font-size: 0.78rem">
+          <a :href="`${$config.public.apiBase}/draws/${id}/bundle`" download class="font-mono text-[0.78rem]">
             download bundle
           </a>
         </div>
         <CheckList :report="report" />
-      </section>
+      </UiCard>
 
       <!-- Self-check against the published leaves -->
-      <section v-if="leafList" class="card">
+      <UiCard v-if="leafList">
         <h2>Check your own entry</h2>
-        <p class="muted" style="font-size: 0.86rem">
+        <p class="text-[0.86rem] text-muted">
           {{ leafList.size }} leaves published. If you entered, you were given a salt at that
           moment — paste it with your entry and this page will look for you in the committed list.
           Nothing is sent anywhere; the check runs here.
         </p>
-        <div class="grid" style="margin-top: 12px">
+        <div class="mt-3 grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3.5">
           <div>
             <label for="sc-label">Your entry</label>
             <input id="sc-label" v-model="selfCheck.label" placeholder="alice@example.com" />
@@ -300,29 +303,29 @@ onMounted(() => {
             <input id="sc-salt" v-model="selfCheck.salt" placeholder="bb9d7bf6…" />
           </div>
         </div>
-        <div class="row" style="margin-top: 10px">
-          <button class="ghost" :disabled="!selfCheck.salt || !selfCheck.label" @click="runSelfCheck">
+        <div class="mt-2.5 flex flex-wrap items-center gap-3 *:min-w-0">
+          <UiButton variant="ghost" :disabled="!selfCheck.salt || !selfCheck.label" @click="runSelfCheck">
             Look for my entry
-          </button>
+          </UiButton>
         </div>
-        <div v-if="selfResult" style="margin-top: 12px">
-          <p v-if="selfResult.found" style="color: var(--seal); font-weight: 600">
+        <div v-if="selfResult" class="mt-3">
+          <p v-if="selfResult.found" class="font-semibold text-seal">
             Found — you are entry #{{ selfResult.index }} of {{ leafList.size }} in the committed
             roster.
           </p>
-          <p v-else style="color: var(--fault); font-weight: 600">
+          <p v-else class="font-semibold text-fault">
             Not found. Your entry is not in the committed list — check the salt and entry are exactly
             as issued before concluding anything.
           </p>
-          <p class="hash">leaf {{ selfResult.leaf || '—' }}</p>
+          <p class="font-mono text-[0.78rem] text-muted wrap-anywhere">leaf {{ selfResult.leaf || '—' }}</p>
         </div>
-      </section>
+      </UiCard>
 
-      <section v-if="token" class="card vis" :class="{ listed }">
-        <div class="spread">
+      <UiCard v-if="token" :class="listed ? 'border-seal!' : ''">
+        <div class="flex flex-wrap items-baseline justify-between gap-4 *:min-w-0">
           <div>
             <h2>{{ listed ? 'Published' : 'Unlisted' }}</h2>
-            <p class="muted" style="font-size: 0.86rem; margin: 6px 0 0; max-width: 54ch">
+            <p class="mt-1.5 mb-0 max-w-[54ch] text-[0.86rem] text-muted">
               <template v-if="listed">
                 This draw appears in the public directory and may be indexed by search engines.
                 Winners are named on this page.
@@ -334,42 +337,29 @@ onMounted(() => {
               </template>
             </p>
           </div>
-          <button class="ghost" :disabled="visBusy" @click="toggleVisibility">
+          <UiButton variant="ghost" :disabled="visBusy" @click="toggleVisibility">
             {{ visBusy ? 'Saving\u2026' : listed ? 'Unlist' : 'Publish to directory' }}
-          </button>
+          </UiButton>
         </div>
-      </section>
+      </UiCard>
 
       <!-- Entrant checks -->
-      <section v-if="draw.roster_commit" class="card">
+      <UiCard v-if="draw.roster_commit">
         <h2>Entrant checks</h2>
-        <p class="muted" style="font-size: 0.86rem">
+        <p class="text-[0.86rem] text-muted">
           Each entrant confirms their own inclusion from the link they were given when they
           entered. Nothing here can look one up for them: the salt that makes a check possible was
           handed over once, at entry, and is not held on the server — which is also why the entry
           list of a private draw cannot be read back out of it.
         </p>
-        <p class="hash" style="margin-top: 10px">
+        <p class="mt-2.5 font-mono text-[0.78rem] text-muted wrap-anywhere">
           committed roster {{ draw.roster_commit.root }}
         </p>
-        <p class="muted" style="font-size: 0.82rem; margin: 8px 0 0">
+        <p class="mt-2 mb-0 text-[0.82rem] text-muted">
           An entrant should check that root against the one on their own result page.
           <NuxtLink to="/receipt">The check page</NuxtLink> takes their link.
         </p>
-      </section>
+      </UiCard>
     </template>
-  </main>
+  </UiPage>
 </template>
-
-<style scoped>
-.winners { list-style: none; padding: 0; margin: 12px 0; }
-.winners li {
-  display: flex; gap: 14px; align-items: baseline;
-  padding: 9px 0; border-bottom: 1px solid var(--rule);
-}
-.wrank {
-  font-family: var(--mono); font-size: 0.72rem; color: var(--surface);
-  background: var(--seal); border-radius: 10px; padding: 2px 9px; flex: none;
-}
-.wlabel { flex: 1; font-weight: 500; word-break: break-all; }
-</style>
