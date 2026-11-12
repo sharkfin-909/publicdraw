@@ -24,6 +24,27 @@ export interface ReplayResult {
   error?: string
 }
 
+/**
+ * The log's identity, as the service derives it from the operator key
+ * (cmd/publicdraw: "vc/log/" + the first 16 hex characters of the key).
+ */
+export function logIdFor(operatorKey: string): string {
+  return `vc/log/${operatorKey.slice(0, 16)}`
+}
+
+/**
+ * Check a published log: replay it from the genesis of the operator's log,
+ * and require it to arrive at the head the server claims. A chain that
+ * replays but ends somewhere else is not a clean log.
+ */
+export function checkLog(records: LogRecord[], claimedHead: string, operatorKey: string): ReplayResult {
+  const r = replay(records, logIdFor(operatorKey))
+  if (r.ok && r.head !== claimedHead.toLowerCase()) {
+    return { ok: false, head: r.head, error: 'the replayed head does not match the head the server published' }
+  }
+  return r
+}
+
 /** Replay a chain from genesis and report the head it arrives at. */
 export function replay(records: LogRecord[], logId: string): ReplayResult {
   let head = genesis(logId)

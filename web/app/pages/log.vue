@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { replay } from '~/lib/translog'
+import { checkLog } from '~/lib/translog'
 import type { LogRecord } from '~/lib/types'
 
 useSeo({
@@ -15,7 +15,6 @@ const head = ref('')
 const abandoned = ref<string[]>([])
 const err = ref('')
 const chain = ref<{ ok: boolean; head: string; error?: string }>()
-const logId = ref('')
 
 async function load() {
   err.value = ''
@@ -24,10 +23,9 @@ async function load() {
     records.value = l.records ?? []
     head.value = l.head
     abandoned.value = a.abandoned ?? []
-    // The service derives its log id from the operator key; replaying the
-    // chain here is what makes this page a check rather than a display.
-    logId.value = `vc/log/${op.public_key.slice(0, 16)}`
-    chain.value = replay(records.value, logId.value)
+    // Replaying the chain here is what makes this page a check rather than
+    // a display.
+    chain.value = checkLog(records.value, l.head, op.public_key)
   } catch (e) {
     err.value = errorText(e)
   }
@@ -71,9 +69,6 @@ onMounted(load)
         <template v-else>{{ chain.error }}</template>
       </p>
       <p class="font-mono text-[0.78rem] text-muted wrap-anywhere">head {{ head }}</p>
-      <UiCallout v-if="chain.ok && chain.head !== head" as="p">
-        The replayed head does not match the head the server published.
-      </UiCallout>
     </UiCard>
 
     <UiCard v-if="abandoned.length" class="border-beacon!">

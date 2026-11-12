@@ -23,7 +23,7 @@ function check(text: string) {
     bundle.value = b
     report.value = verifyBundle(b)
   } catch (e) {
-    err.value = e instanceof Error ? e.message : String(e)
+    err.value = errorText(e)
   }
 }
 

@@ -6,8 +6,6 @@ import type {
   Proof,
   PublicDraw,
   Receipt,
-  RosterCommitment,
-  DrawState,
 } from '~/lib/types'
 
 /**
@@ -25,18 +23,26 @@ export function useApi() {
   // hydration has no Open Graph preview and no reliable crawl.
   const base = import.meta.server ? cfg.apiInternal : cfg.public.apiBase
 
-  const { token } = useOrganiser()
+  const { token, signOut } = useOrganiser()
 
   const call = <T>(path: string, opts: Parameters<typeof $fetch>[1] = {}) =>
     $fetch<T>(`${base}${path}`, opts as never)
 
-  /** The routes only an organiser may use. */
+  /**
+   * The routes only an organiser may use. A token the server rejects is
+   * dropped here, for every page at once, so an expired token signs the
+   * organiser out instead of failing each action with a raw 401.
+   */
   const organiser = <T>(path: string, opts: Parameters<typeof $fetch>[1] = {}) =>
-    call<T>(path, { ...opts, headers: { Authorization: `Bearer ${token.value}` } })
+    call<T>(path, {
+      ...opts,
+      headers: { Authorization: `Bearer ${token.value}` },
+      onResponseError({ response }: { response: { status: number } }) {
+        if (response.status === 401) signOut()
+      },
+    })
 
   return {
-    health: () => call<{ ok: boolean; log_length: number }>('/health'),
-
     operator: () =>
       call<{
         public_key: string
@@ -78,12 +84,6 @@ export function useApi() {
 
     leaves: (id: string) =>
       call<{ root: string; size: number; leaves: string[] }>(`/draws/${id}/leaves`),
-
-    commit: (id: string) =>
-      organiser<{ roster_commit: RosterCommitment; roster_sig: string; state: DrawState }>(
-        `/draws/${id}/commit`,
-        { method: 'POST' },
-      ),
 
     /**
      * The path only. Salt and label stay with the entrant, who was given both

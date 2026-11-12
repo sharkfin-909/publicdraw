@@ -41,8 +41,7 @@ const bundle = computed(() => s.bundle)
 const report = computed(() => s.report)
 const phase = computed(() => s.phase)
 
-const err = ref('')
-const busy = ref('')
+const { busy, error: err, run: act } = useAction()
 
 // A missing draw must return 404, not a 200 with an empty shell — otherwise
 // every mistyped id becomes an indexable soft-404.
@@ -62,18 +61,8 @@ const listed = computed(() => draw.value?.visibility === 'public')
 
 const canonicalPath = computed(() => drawPath(id.value, draw.value?.params.title))
 
-const visBusy = ref(false)
-async function toggleVisibility() {
-  visBusy.value = true
-  try {
-    await api.setVisibility(id.value, listed.value ? 'unlisted' : 'public')
-    await session.refresh()
-  } catch (e) {
-    err.value = errorText(e)
-  } finally {
-    visBusy.value = false
-  }
-}
+const toggleVisibility = () =>
+  act('visibility', () => api.setVisibility(id.value, listed.value ? 'unlisted' : 'public'), session.refresh)
 
 useSeo(() => {
   const d = draw.value!
@@ -101,19 +90,6 @@ const admitted = ref<Admission[]>([])
 const selfCheck = reactive({ salt: '', label: '' })
 const selfResult = ref<{ found: boolean; index: number; leaf: string } | null>(null)
 
-async function act(name: string, fn: () => Promise<unknown>) {
-  err.value = ''
-  busy.value = name
-  try {
-    await fn()
-    await session.refresh()
-  } catch (e) {
-    err.value = errorText(e)
-  } finally {
-    busy.value = ''
-  }
-}
-
 const addEntries = () =>
   act('enter', async () => {
     const labels = entriesText.value.split('\n').map((l) => l.trim()).filter(Boolean)
@@ -121,7 +97,7 @@ const addEntries = () =>
     const { admitted: rows } = await api.addEntries(id.value, labels)
     admitted.value = [...admitted.value, ...rows]
     entriesText.value = ''
-  })
+  }, session.refresh)
 
 function runSelfCheck() {
   const leaves = s.checkLeaves
@@ -134,7 +110,7 @@ function runSelfCheck() {
   selfResult.value = { found: m.ok, index: m.index, leaf: m.leaf }
 }
 
-const run = () => act('run', () => api.run(id.value))
+const run = () => act('run', () => api.run(id.value), session.refresh)
 </script>
 
 <template>
@@ -301,8 +277,8 @@ const run = () => act('run', () => api.run(id.value))
               </template>
             </p>
           </div>
-          <UiButton variant="ghost" :disabled="visBusy" @click="toggleVisibility">
-            {{ visBusy ? 'Saving\u2026' : listed ? 'Unlist' : 'Publish to directory' }}
+          <UiButton variant="ghost" :disabled="busy === 'visibility'" @click="toggleVisibility">
+            {{ busy === 'visibility' ? 'Saving\u2026' : listed ? 'Unlist' : 'Publish to directory' }}
           </UiButton>
         </div>
       </UiCard>

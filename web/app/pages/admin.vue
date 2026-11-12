@@ -15,7 +15,7 @@ const tokenInput = ref('')
 const draws = ref<DrawSummary[]>([])
 const operator = ref<Awaited<ReturnType<typeof api.operator>>>()
 const loadError = ref('')
-const busy = ref(false)
+const { busy, error: createError, run } = useAction()
 
 const form = reactive({
   title: '',
@@ -23,7 +23,6 @@ const form = reactive({
   disclosure: 'private' as 'public' | 'private',
   openMinutes: 10,
 })
-const createError = ref('')
 
 async function load() {
   loadError.value = ''
@@ -34,7 +33,7 @@ async function load() {
     draws.value = await Promise.all((ids ?? []).map((id) => api.getDraw(id)))
     draws.value.sort((a, b) => b.params.created_at - a.params.created_at)
   } catch (e) {
-    if ((e as { statusCode?: number }).statusCode === 401) signOut()
+    // A rejected token has already signed the organiser out (see useApi).
     loadError.value = errorText(e)
   }
 }
@@ -46,10 +45,8 @@ function enter() {
 
 watch(token, load)
 
-async function create() {
-  createError.value = ''
-  busy.value = true
-  try {
+const create = () =>
+  run('create', async () => {
     const made = await api.createDraw({
       title: form.title,
       winners: form.winners,
@@ -58,12 +55,7 @@ async function create() {
     })
     form.title = ''
     await navigateTo(drawPath(made.params.draw_id, made.params.title))
-  } catch (e) {
-    createError.value = errorText(e)
-  } finally {
-    busy.value = false
-  }
-}
+  })
 
 </script>
 
@@ -137,8 +129,8 @@ async function create() {
         </p>
         <UiCallout v-if="createError" tone="error">{{ createError }}</UiCallout>
         <div class="flex flex-wrap items-center gap-3 *:min-w-0">
-          <UiButton type="submit" :disabled="busy || !form.title">
-            {{ busy ? 'Creating…' : 'Create and commit parameters' }}
+          <UiButton type="submit" :disabled="busy === 'create' || !form.title">
+            {{ busy === 'create' ? 'Creating…' : 'Create and commit parameters' }}
           </UiButton>
         </div>
       </form>

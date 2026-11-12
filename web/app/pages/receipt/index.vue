@@ -43,7 +43,7 @@ function checkJson() {
     const m = checkMembership({ salt: r.salt, label: r.entry.label }, { path: r })
     result.value = { ok: m.included, receipt: r }
   } catch (e) {
-    err.value = e instanceof Error ? e.message : String(e)
+    err.value = errorText(e)
   }
 }
 </script>
