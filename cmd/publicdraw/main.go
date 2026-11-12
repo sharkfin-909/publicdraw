@@ -12,12 +12,15 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/sharkfin-909/publicdraw/beacon"
@@ -41,7 +44,7 @@ organiser:
   publicdraw create  -title T [-winners N] [-disclosure public|private] -open 10m
   publicdraw enter   -draw ID (-label L | -file FILE) [-salts FILE]
   publicdraw leaves  -draw ID
-  publicdraw anchor  [-draw ID]                      publish the log head to Rekor
+  publicdraw anchor  -draw ID                        retry a frozen draw's Rekor anchor
   publicdraw commit  -draw ID
   publicdraw run     -draw ID [-wait]
   publicdraw receipt -draw ID -index N [-out FILE]
@@ -151,7 +154,9 @@ func openService() (*service.Service, error) {
 		return nil, err
 	}
 	opts := []service.Option{}
-	if kf.AnchorKey != "" {
+	// An empty -rekor turns anchoring off. rekor.New("") would quietly fall
+	// back to the public instance, so it must not be reached.
+	if kf.AnchorKey != "" && *rekorFlag != "" {
 		der, err := hex.DecodeString(kf.AnchorKey)
 		if err != nil {
 			return nil, fmt.Errorf("anchor key hex: %w", err)
@@ -215,18 +220,19 @@ func cmdCreate(args []string) error {
 	if *title == "" {
 		return fmt.Errorf("create: -title is required")
 	}
-	when := time.Unix(*cutoff, 0)
-	if *cutoff == 0 {
-		if *open == 0 {
-			return fmt.Errorf("create: pass -open DURATION or -cutoff UNIXTIME")
-		}
-		when = time.Now().Add(*open)
+	if *cutoff == 0 && *open == 0 {
+		return fmt.Errorf("create: pass -open DURATION or -cutoff UNIXTIME")
 	}
 	svc, err := openService()
 	if err != nil {
 		return err
 	}
-	st, err := svc.Create(*title, *winners, roster.Disclosure(*disc), when)
+	var st *service.Stored
+	if *cutoff == 0 {
+		st, err = svc.CreateOpenFor(*title, *winners, roster.Disclosure(*disc), *open)
+	} else {
+		st, err = svc.Create(*title, *winners, roster.Disclosure(*disc), time.Unix(*cutoff, 0))
+	}
 	if err != nil {
 		return err
 	}
@@ -323,32 +329,25 @@ func cmdLeaves(args []string) error {
 	if err != nil {
 		return err
 	}
-	st, err := svc.Get(*id)
+	ll, err := svc.Leaves(*id)
 	if err != nil {
 		return err
 	}
-	if st.RosterCommit == nil {
-		return fmt.Errorf("leaves: draw %s has no committed roster yet", *id)
-	}
-	ros, err := roster.Load(st.Sealed)
-	if err != nil {
-		return err
-	}
-	for i, l := range ros.Leaves() {
+	for i, l := range ll.Leaves {
 		fmt.Printf("%d\t%s\n", i, l)
 	}
-	fmt.Fprintf(os.Stderr, "\n%d leaves, root %s\n", st.RosterCommit.Size, st.RosterCommit.Root)
+	fmt.Fprintf(os.Stderr, "\n%d leaves, root %s\n", ll.Size, ll.Root)
 	return nil
 }
 
-// cmdAnchor publishes the current transparency-log head to Sigstore's Rekor.
-//
-// Anchoring is what makes the local chain mean anything to someone who was not
-// watching: a hash chain nobody witnessed can simply be rebuilt, but an entry
-// in a public append-only log cannot be withdrawn.
+// cmdAnchor anchors a frozen draw's commit head into Sigstore's Rekor again,
+// for when Rekor was unreachable at the freeze. Freezing anchors on its own;
+// this is only the retry. It anchors the head the log had right after the
+// draw's roster record, so the anchor still says what the roster was — but a
+// verifier credits it only if Rekor's witnesses saw it before the target round.
 func cmdAnchor(args []string) error {
 	fs := newFlags("anchor", args)
-	id := fs.String("draw", "", "record this anchor as the one covering this draw")
+	id := fs.String("draw", "", "draw id")
 	parse(fs, args)
 
 	svc, err := openService()
@@ -356,41 +355,35 @@ func cmdAnchor(args []string) error {
 		return err
 	}
 	if !svc.AnchorsEnabled() {
-		return fmt.Errorf("anchor: no anchor key in %s (regenerate with: publicdraw keygen)", keyPath())
+		return fmt.Errorf("anchor: anchoring is off (no anchor key in %s, or -rekor is empty)", keyPath())
 	}
-
-	head := svc.Log().Head()
-	fmt.Printf("publishing log head %s…\n", head.String()[:16])
-
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-	a, err := svc.AnchorHead(ctx)
+	f, err := svc.Reanchor(context.Background(), *id)
 	if err != nil {
 		return err
 	}
-	cp, err := a.ParseCheckpoint()
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("\n%s\n", cp.Origin)
-	fmt.Printf("  index      %d of %d\n", a.LogIndex, a.TreeSize)
-	fmt.Printf("  inclusion  proof verifies locally\n")
-	for _, c := range cp.Cosignatures() {
-		fmt.Printf("  witness    %-48s %s\n", c.Witness, c.At.Format(time.RFC3339))
-	}
-	if len(cp.Cosignatures()) > 0 {
-		fmt.Printf("\nWitness times are not verified here — doing so needs each witness's key\n")
-		fmt.Printf("and a policy for how many must agree. Rekor v2 has no other clock.\n")
-	}
-
-	if *id != "" {
-		if err := svc.SetAnchoredHead(*id, head); err != nil {
-			return err
-		}
-		fmt.Printf("\nrecorded as the anchor for draw %s\n", *id)
-	}
+	printAnchor(f)
 	return nil
+}
+
+// printAnchor describes a freeze's anchor, or why there is none.
+func printAnchor(f service.Frozen) {
+	switch {
+	case f.AnchorErr != nil:
+		// Not fatal. A draw with no anchor is still a valid draw; it just
+		// rests more on the organiser's own word, and verification says so.
+		fmt.Printf("rekor      anchoring failed: %v\n", f.AnchorErr)
+	case f.Anchor != nil:
+		cp, err := f.Anchor.ParseCheckpoint()
+		if err != nil {
+			fmt.Printf("rekor      index %d (checkpoint unreadable: %v)\n", f.Anchor.LogIndex, err)
+			return
+		}
+		fmt.Printf("rekor      %s index %d of %d, inclusion proof verifies locally", cp.Origin, f.Anchor.LogIndex, f.Anchor.TreeSize)
+		if at, ok := cp.EarliestCosignature(); ok {
+			fmt.Printf(", witnessed %s", at.Format(time.RFC3339))
+		}
+		fmt.Println()
+	}
 }
 
 func cmdCommit(args []string) error {
@@ -402,42 +395,22 @@ func cmdCommit(args []string) error {
 	if err != nil {
 		return err
 	}
-	st, err := svc.CommitRoster(*id)
+	f, err := svc.Freeze(context.Background(), *id)
 	if err != nil {
 		return err
 	}
-	chain := svc.Chain()
-	target := chain.TimeOf(st.Params.TargetRound)
+	st := f.Draw
+	target := svc.Chain().TimeOf(st.Params.TargetRound)
 	fmt.Printf("entries    %d\n", st.RosterCommit.Size)
 	fmt.Printf("root       %s\n", st.RosterCommit.Root)
 	fmt.Printf("commit     %s\n", st.RosterCommit.Commit)
-	fmt.Printf("log head   %s\n", svc.Log().Head())
+	fmt.Printf("log head   %s\n", f.Head)
 	fmt.Printf("draws at   round %d, in %s\n", st.Params.TargetRound, time.Until(target).Truncate(time.Second))
-	if svc.AnchorsEnabled() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		head := svc.Log().Head()
-		if a, aerr := svc.AnchorHead(ctx); aerr != nil {
-			// Not fatal. A draw with no anchor is still a valid draw; it just
-			// rests more on the organiser's own word, and verification says so.
-			fmt.Printf("rekor      anchoring failed: %v\n", aerr)
-		} else {
-			if err := svc.SetAnchoredHead(*id, head); err != nil {
-				return err
-			}
-			cp, _ := a.ParseCheckpoint()
-			at, ok := cp.EarliestCosignature()
-			fmt.Printf("rekor      %s index %d", cp.Origin, a.LogIndex)
-			if ok {
-				fmt.Printf(", witnessed %s", at.Format(time.RFC3339))
-			}
-			fmt.Println()
-		}
-	}
+	printAnchor(f)
 
 	fmt.Printf("\nThe entry list is now frozen and the randomness does not exist yet.\n")
 	fmt.Printf("Timestamp the log head to prove that to someone who distrusts your clock:\n")
-	fmt.Printf("  echo -n %s | xxd -r -p > log.head && ots stamp log.head\n", svc.Log().Head())
+	fmt.Printf("  echo -n %s | xxd -r -p > log.head && ots stamp log.head\n", f.Head)
 	return nil
 }
 
@@ -545,25 +518,34 @@ func cmdServe(args []string) error {
 		WriteTimeout:      2 * time.Minute,
 		IdleTimeout:       2 * time.Minute,
 	}
-	go freezeDraws(svc)
-	fmt.Printf("operator  %s\n", svc.OperatorKey())
-	fmt.Printf("log head  %s\n", svc.Log().Head())
-	fmt.Printf("listening on %s\n", *addr)
-	return srv.ListenAndServe()
-}
-
-// freezeDraws freezes each draw as its cutoff passes, for as long as the server
-// runs. Checked every second: a draw has about 15 seconds to freeze in.
-func freezeDraws(svc *service.Service) {
-	for range time.Tick(time.Second) {
-		frozen, err := svc.FreezeDue()
-		for _, id := range frozen {
-			fmt.Printf("froze %s\n", id)
+	// Each draw is frozen, and anchored, as its cutoff passes. Checked every
+	// second: a draw has about 15 seconds to freeze in.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	go svc.KeepFreezing(ctx, time.Second, func(frozen []service.Frozen, err error) {
+		for _, f := range frozen {
+			fmt.Printf("froze %s\n", f.Draw.Params.DrawID)
+			printAnchor(f)
 		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "publicdraw:", err)
 		}
+	})
+	go func() {
+		<-ctx.Done()
+		shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(shutdown)
+	}()
+
+	fmt.Printf("operator  %s\n", svc.OperatorKey())
+	fmt.Printf("log head  %s\n", svc.Log().Head())
+	fmt.Printf("anchoring %v\n", svc.AnchorsEnabled())
+	fmt.Printf("listening on %s\n", *addr)
+	if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		return err
 	}
+	return nil
 }
 
 func cmdVerify(args []string) error {

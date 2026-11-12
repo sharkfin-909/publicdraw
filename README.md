@@ -136,14 +136,22 @@ A hash chain only bites once someone has seen a head. Left to itself the log
 rests on the organiser having published it honestly — which is the thing under
 question.
 
-So `publicdraw commit` publishes the head to **Sigstore's Rekor**, a public
-append-only log the organiser does not run, and keeps the inclusion proof in
-the bundle. Verification recomputes the proof (RFC 6962) and checks it lands on
-the root the log's signed checkpoint carries.
+So freezing a draw publishes the log head that records its roster to
+**Sigstore's Rekor**, a public append-only log the organiser does not run, and
+keeps the inclusion proof in the bundle. That happens however the draw is
+frozen — `publicdraw commit`, `POST /commit`, or `serve` freezing it at the
+cutoff — because all three are the same service operation. Verification
+recomputes the proof (RFC 6962) and checks it lands on the root the log's
+signed checkpoint carries.
 
 ```sh
-publicdraw anchor -draw ID      # publish the current head by hand
+publicdraw anchor -draw ID      # retry a draw's anchor if Rekor was unreachable at the freeze
+publicdraw -rekor "" serve      # an empty endpoint turns anchoring off, e.g. for local development
 ```
+
+A retry anchors the same head, the one right after the draw's roster record,
+so it still says what the roster was. A verifier credits it only if Rekor's
+witnesses saw it before the target round, so in practice it has to be quick.
 
 Rekor v2's `integratedTime` is always 0 — it is not a timestamp authority. Time
 comes from the **witness cosignatures** on the checkpoint: several independent
@@ -208,9 +216,14 @@ echo -n <log head> | xxd -r -p > log.head && ots stamp log.head
 `publicdraw serve` exposes the same rules — every ordering constraint lives in the
 service layer, so the API cannot permit something the CLI forbids.
 
-While it runs, `serve` freezes each draw as its cutoff passes, because the
-window before the target round is only seconds long. A draw with too few entries
-stays open and cannot be completed.
+While it runs, `serve` freezes and anchors each draw as its cutoff passes,
+because the window before the target round is only seconds long. A draw with
+too few entries stays open and cannot be completed.
+
+`serve` holds its directory exclusively, and so does every CLI command that
+writes. Two processes writing one directory would each keep their own log head
+and fork the chain, after which the log no longer opens — so while `serve` is
+running, make changes through its API rather than the CLI.
 
 Routes marked `*` need the organiser token as `Authorization: Bearer …`, because
 they sign with the operator key, write to the log or list unlisted draws.

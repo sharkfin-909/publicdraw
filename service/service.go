@@ -7,12 +7,10 @@ package service
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -71,6 +69,10 @@ type Stored struct {
 	// AnchoredHead is the log head that was published to Rekor for this draw,
 	// recorded so the bundle can carry the matching inclusion proof.
 	AnchoredHead string `json:"anchored_head,omitempty"`
+
+	// Pending is a log record this state change has committed to but not yet
+	// confirmed in the log — see PendingRecord.
+	Pending *PendingRecord `json:"pending_record,omitempty"`
 }
 
 // Visible returns the effective visibility, treating an absent value as
@@ -95,8 +97,8 @@ type Service struct {
 	now   func() time.Time
 	fetch func(context.Context, uint64) (beacon.Round, error)
 
-	rekor     *rekor.Client
-	anchorKey *ecdsa.PrivateKey
+	anchor Anchorer // nil when anchoring is not configured
+	lock   *os.File // held for the service's lifetime; see ErrLocked
 }
 
 // Option customises a Service.
@@ -109,16 +111,6 @@ func WithClock(f func() time.Time) Option { return func(s *Service) { s.now = f 
 // WithChain selects a drand chain.
 func WithChain(c beacon.Chain) Option { return func(s *Service) { s.chain = c } }
 
-// WithRekor enables anchoring the transparency-log head into Sigstore's Rekor.
-//
-// Without it the local log is tamper-evident only against someone who already
-// saw an earlier head. With it, each head lands in an append-only log the
-// organiser does not control, so a draw that was committed and then quietly
-// abandoned cannot be made to disappear.
-func WithRekor(c *rekor.Client, key *ecdsa.PrivateKey) Option {
-	return func(s *Service) { s.rekor, s.anchorKey = c, key }
-}
-
 // WithFetcher replaces the beacon source. Tests use it to drive a draw to
 // completion against a captured round instead of waiting for a live one; the
 // signature is still verified, so a fake fetcher cannot smuggle in a round the
@@ -127,7 +119,10 @@ func WithFetcher(f func(context.Context, uint64) (beacon.Round, error)) Option {
 	return func(s *Service) { s.fetch = f }
 }
 
-// New opens (or creates) a service rooted at dir.
+// New opens (or creates) a service rooted at dir, and holds it exclusively
+// until Close: a second process writing the same directory would keep its own
+// log head and fork the chain. Any state change a crash left half-logged is
+// finished before New returns.
 func New(dir, logID string, priv ed25519.PrivateKey, opts ...Option) (*Service, error) {
 	if len(priv) != ed25519.PrivateKeySize {
 		return nil, errors.New("service: bad operator private key")
@@ -143,13 +138,26 @@ func New(dir, logID string, priv ed25519.PrivateKey, opts ...Option) (*Service, 
 	if err := os.MkdirAll(filepath.Join(dir, "draws"), 0o755); err != nil {
 		return nil, err
 	}
-	l, err := translog.Open(filepath.Join(dir, "log.jsonl"), logID)
+	lock, err := lockDir(dir)
 	if err != nil {
 		return nil, err
 	}
+	s.lock = lock
+	l, err := translog.Open(filepath.Join(dir, "log.jsonl"), logID)
+	if err != nil {
+		lock.Close()
+		return nil, err
+	}
 	s.log = l
+	if err := s.recover(); err != nil {
+		lock.Close()
+		return nil, err
+	}
 	return s, nil
 }
+
+// Close releases the service directory for another process.
+func (s *Service) Close() error { return s.lock.Close() }
 
 // OperatorKey returns the public key bundles are verified against.
 func (s *Service) OperatorKey() string { return hex.EncodeToString(s.pub) }
@@ -165,7 +173,7 @@ func (s *Service) path(id string) string { return filepath.Join(s.dir, "draws", 
 func (s *Service) load(id string) (*Stored, error) {
 	b, err := os.ReadFile(s.path(id))
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("service: no draw %q", id)
+		return nil, notFound(id)
 	}
 	if err != nil {
 		return nil, err
@@ -198,10 +206,7 @@ func (s *Service) Create(title string, winners int, disc roster.Disclosure, cuto
 		return nil, err
 	}
 	st := &Stored{Params: p, ParamsSig: hex.EncodeToString(sig), State: StateOpen}
-	if err := s.save(st); err != nil {
-		return nil, err
-	}
-	if _, err := s.log.Append(translog.KindDrawCreated, p.DrawID, p.Commit(), now.Unix()); err != nil {
+	if _, err := s.transition(st, translog.KindDrawCreated, p.Commit(), now.Unix()); err != nil {
 		return nil, err
 	}
 	return st, nil
@@ -229,15 +234,15 @@ func (s *Service) Enter(id string, labels ...string) ([]Admission, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	st, err := s.load(id)
+	st, err := s.loadSettled(id)
 	if err != nil {
 		return nil, err
 	}
 	if st.State != StateOpen {
-		return nil, fmt.Errorf("service: draw %s is %s, not open", id, st.State)
+		return nil, refuse("service: draw %s is %s, not open", id, st.State)
 	}
 	if s.now().Unix() >= st.Params.CutoffAt {
-		return nil, fmt.Errorf("service: entries for %s closed at %d", id, st.Params.CutoffAt)
+		return nil, refuse("service: entries for %s closed at %d", id, st.Params.CutoffAt)
 	}
 	if len(labels) == 0 {
 		return nil, nil
@@ -258,53 +263,6 @@ func (s *Service) Enter(id string, labels ...string) ([]Admission, error) {
 	return out, nil
 }
 
-// CommitRoster freezes the entry list, signs it and logs it. It must happen at
-// or after the cutoff and before the target round publishes; both bounds are
-// enforced here and re-checked by any verifier.
-func (s *Service) CommitRoster(id string) (*Stored, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	st, err := s.load(id)
-	if err != nil {
-		return nil, err
-	}
-	if st.State != StateOpen {
-		return nil, fmt.Errorf("service: draw %s is already %s", id, st.State)
-	}
-	if len(st.Sealed) < st.Params.Winners {
-		return nil, fmt.Errorf("service: %d entries cannot yield %d winners", len(st.Sealed), st.Params.Winners)
-	}
-	now := s.now()
-	if now.Unix() >= s.chain.TimeOf(st.Params.TargetRound).Unix() {
-		return nil, fmt.Errorf("service: round %d has already published; this draw can no longer be committed honestly", st.Params.TargetRound)
-	}
-
-	// Entries were salted on arrival, so freezing is only a matter of
-	// committing to the order they already sit in.
-	r, err := roster.Load(st.Sealed)
-	if err != nil {
-		return nil, err
-	}
-	rc, sig, err := draw.CommitRoster(st.Params, r.Commitment(), s.priv, now)
-	if err != nil {
-		return nil, err
-	}
-	st.RosterCommit = &rc
-	st.RosterSig = hex.EncodeToString(sig)
-	st.State = StateCommitted
-	if err := s.save(st); err != nil {
-		return nil, err
-	}
-
-	var payload hashing.Digest
-	copy(payload[:], rc.SigningBytes())
-	if _, err := s.log.Append(translog.KindRosterCommitted, id, payload, now.Unix()); err != nil {
-		return nil, err
-	}
-	return st, nil
-}
-
 // Proof returns the public half of a receipt for one index: the root, the
 // size and the Merkle path, with no salt and no label. It is what the HTTP
 // API serves, because everything omitted here is already held by the entrant
@@ -318,7 +276,7 @@ func (s *Service) Proof(id string, index int) (roster.Proof, error) {
 		return roster.Proof{}, err
 	}
 	if st.RosterCommit == nil {
-		return roster.Proof{}, fmt.Errorf("service: draw %s has no committed roster yet", id)
+		return roster.Proof{}, refuse("service: draw %s has no committed roster yet", id)
 	}
 	r, err := roster.Load(st.Sealed)
 	if err != nil {
@@ -345,7 +303,7 @@ func (s *Service) Receipt(id string, index int) (roster.Receipt, error) {
 		return roster.Receipt{}, err
 	}
 	if st.RosterCommit == nil {
-		return roster.Receipt{}, fmt.Errorf("service: draw %s has no committed roster yet", id)
+		return roster.Receipt{}, refuse("service: draw %s has no committed roster yet", id)
 	}
 	r, err := roster.Load(st.Sealed)
 	if err != nil {
@@ -367,17 +325,17 @@ func (s *Service) Run(ctx context.Context, id string) (bundle.Bundle, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	st, err := s.load(id)
+	st, err := s.loadSettled(id)
 	if err != nil {
 		return bundle.Bundle{}, err
 	}
 	if st.State == StateOpen {
-		return bundle.Bundle{}, fmt.Errorf("service: draw %s has no committed roster", id)
+		return bundle.Bundle{}, refuse("service: draw %s has no committed roster", id)
 	}
 	target := s.chain.TimeOf(st.Params.TargetRound)
-	if s.now().Before(target) {
-		return bundle.Bundle{}, fmt.Errorf("service: round %d does not publish for another %s",
-			st.Params.TargetRound, time.Until(target).Truncate(time.Second))
+	if now := s.now(); now.Before(target) {
+		return bundle.Bundle{}, refuse("service: round %d does not publish for another %s",
+			st.Params.TargetRound, target.Sub(now).Truncate(time.Second))
 	}
 
 	r, err := s.fetch(ctx, st.Params.TargetRound)
@@ -391,12 +349,9 @@ func (s *Service) Run(ctx context.Context, id string) (bundle.Bundle, error) {
 
 	if st.State != StateDrawn {
 		st.State = StateDrawn
-		if err := s.save(st); err != nil {
-			return bundle.Bundle{}, err
-		}
 		var payload hashing.Digest
 		copy(payload[:], b.Result.Seed[:])
-		if _, err := s.log.Append(translog.KindResultPublished, id, payload, s.now().Unix()); err != nil {
+		if _, err := s.transition(st, translog.KindResultPublished, payload, s.now().Unix()); err != nil {
 			return bundle.Bundle{}, err
 		}
 	}
@@ -415,7 +370,7 @@ func (s *Service) Bundle(ctx context.Context, id string) (bundle.Bundle, error) 
 		return bundle.Bundle{}, err
 	}
 	if st.State != StateDrawn {
-		return bundle.Bundle{}, fmt.Errorf("service: draw %s has not been drawn", id)
+		return bundle.Bundle{}, refuse("service: draw %s has not been drawn", id)
 	}
 	r, err := s.fetch(ctx, st.Params.TargetRound)
 	if err != nil {
@@ -477,9 +432,6 @@ func (s *Service) assemble(st *Stored, r beacon.Round) (bundle.Bundle, error) {
 	}, nil
 }
 
-// AnchorsEnabled reports whether this service can anchor into Rekor.
-func (s *Service) AnchorsEnabled() bool { return s.rekor != nil && s.anchorKey != nil }
-
 func (s *Service) anchorPath() string { return filepath.Join(s.dir, "anchors.json") }
 
 func (s *Service) loadAnchors() (map[string]*rekor.Anchor, error) {
@@ -495,58 +447,6 @@ func (s *Service) loadAnchors() (map[string]*rekor.Anchor, error) {
 		return nil, err
 	}
 	return out, nil
-}
-
-// AnchorHead publishes the current transparency-log head to Rekor and keeps
-// the resulting inclusion proof.
-//
-// It is a separate step rather than something CommitRoster does inline,
-// because Rekor batches and takes seconds, and the service mutex has no
-// business being held across a network call on the critical path of a draw.
-// Failure is not fatal: a draw with no anchor is still a valid draw, it just
-// rests more on the organiser's own word, and verification says so.
-func (s *Service) AnchorHead(ctx context.Context) (*rekor.Anchor, error) {
-	if !s.AnchorsEnabled() {
-		return nil, errors.New("service: rekor anchoring is not configured")
-	}
-	head := s.log.Head()
-
-	a, err := s.rekor.Submit(ctx, head[:], s.anchorKey)
-	if err != nil {
-		return nil, err
-	}
-	if err := a.VerifyInclusion(); err != nil {
-		return nil, fmt.Errorf("service: rekor returned a proof that does not verify: %w", err)
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	anchors, err := s.loadAnchors()
-	if err != nil {
-		return nil, err
-	}
-	anchors[head.String()] = a
-	b, err := json.MarshalIndent(anchors, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	if err := os.WriteFile(s.anchorPath(), append(b, '\n'), 0o644); err != nil {
-		return nil, err
-	}
-	return a, nil
-}
-
-// SetAnchoredHead records which log head was anchored for a draw, so the
-// bundle can carry the matching proof.
-func (s *Service) SetAnchoredHead(id string, head hashing.Digest) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	st, err := s.load(id)
-	if err != nil {
-		return err
-	}
-	st.AnchoredHead = head.String()
-	return s.save(st)
 }
 
 // AnchorFor returns the stored anchor for a log head, if one exists.
@@ -585,50 +485,15 @@ func (s *Service) Abandoned() ([]string, error) {
 	return out, nil
 }
 
-// FreezeDue commits every open draw whose cutoff has passed, and returns the ids
-// it froze. The window before the target round is only seconds long, so this
-// cannot wait for a person. A draw short of entries is left open: it cannot be
-// frozen, and it shows up in Abandoned once its round has published.
-func (s *Service) FreezeDue() ([]string, error) {
-	ids, err := s.List()
-	if err != nil {
-		return nil, err
-	}
-	var frozen []string
-	var errs []error
-	for _, id := range ids {
-		st, err := s.Get(id)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		now := s.now()
-		if st.State != StateOpen || now.Unix() < st.Params.CutoffAt ||
-			len(st.Sealed) < st.Params.Winners ||
-			now.Unix() >= s.chain.TimeOf(st.Params.TargetRound).Unix() {
-			continue
-		}
-		if _, err := s.CommitRoster(id); err != nil {
-			// Someone may have frozen it by hand since Get. That is no failure.
-			if cur, getErr := s.Get(id); getErr != nil || cur.State == StateOpen {
-				errs = append(errs, fmt.Errorf("freeze %s: %w", id, err))
-			}
-			continue
-		}
-		frozen = append(frozen, id)
-	}
-	return frozen, errors.Join(errs...)
-}
-
 // SetVisibility marks a draw listed or unlisted. It touches no signed material.
 func (s *Service) SetVisibility(id string, v Visibility) (*Stored, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if !v.Valid() {
-		return nil, fmt.Errorf("service: unknown visibility %q", v)
+		return nil, refuse("service: unknown visibility %q", v)
 	}
-	st, err := s.load(id)
+	st, err := s.loadSettled(id)
 	if err != nil {
 		return nil, err
 	}

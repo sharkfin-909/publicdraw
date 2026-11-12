@@ -210,6 +210,19 @@ func (l *Log) ForDraw(drawID string) []Record {
 	return out
 }
 
+// Find returns a draw's record of one kind, if the log has one. Each kind is
+// recorded at most once per draw, so there is at most one to find.
+func (l *Log) Find(drawID string, kind Kind) (Record, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for _, r := range l.records {
+		if r.DrawID == drawID && r.Kind == kind {
+			return r, true
+		}
+	}
+	return Record{}, false
+}
+
 // Unresolved lists draws whose creation was logged before `before` but whose
 // result never was.
 //

@@ -33,24 +33,38 @@ type harness struct {
 
 func (h *harness) set(unix int64) { h.now = time.Unix(unix, 0) }
 
-func newHarness(t *testing.T) *harness {
+func newHarness(t *testing.T, opts ...Option) *harness {
+	t.Helper()
+	return newHarnessIn(t, t.TempDir(), opts...)
+}
+
+// newHarnessIn opens a harness on an existing directory, so a test can close
+// a service and reopen the same state.
+func newHarnessIn(t *testing.T, dir string, opts ...Option) *harness {
 	t.Helper()
 	_, priv, err := draw.GenerateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
 	h := &harness{now: time.Unix(tCreate, 0)}
-	svc, err := New(t.TempDir(), "test-log", priv,
+	h.open(t, dir, priv, opts...)
+	return h
+}
+
+func (h *harness) open(t *testing.T, dir string, priv []byte, opts ...Option) {
+	t.Helper()
+	base := []Option{
 		WithClock(func() time.Time { return h.now }),
 		WithFetcher(func(context.Context, uint64) (beacon.Round, error) {
 			return beacon.Round{Round: vecRound, Signature: vecSig}, nil
 		}),
-	)
+	}
+	svc, err := New(dir, "test-log", priv, append(base, opts...)...)
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { svc.Close() })
 	h.Service = svc
-	return h
 }
 
 func (h *harness) fullDraw(t *testing.T, winners int, disc roster.Disclosure, labels ...string) bundle.Bundle {
@@ -63,7 +77,7 @@ func (h *harness) fullDraw(t *testing.T, winners int, disc roster.Disclosure, la
 		t.Fatal(err)
 	}
 	h.set(tCutoff)
-	if _, err := h.CommitRoster(st.Params.DrawID); err != nil {
+	if _, err := h.Freeze(context.Background(), st.Params.DrawID); err != nil {
 		t.Fatal(err)
 	}
 	h.set(tRound + 6)
@@ -192,7 +206,7 @@ func TestEnterReturnsASaltPerEntrantImmediately(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.set(tCutoff)
-	if _, err := h.CommitRoster(st.Params.DrawID); err != nil {
+	if _, err := h.Freeze(context.Background(), st.Params.DrawID); err != nil {
 		t.Fatal(err)
 	}
 	stored, err := h.Get(st.Params.DrawID)
@@ -212,10 +226,10 @@ func TestRosterCannotBeCommittedTwice(t *testing.T) {
 	st, _ := h.Create("t", 1, roster.Private, time.Unix(tCutoff, 0))
 	h.Enter(st.Params.DrawID, names(5)...)
 	h.set(tCutoff)
-	if _, err := h.CommitRoster(st.Params.DrawID); err != nil {
+	if _, err := h.Freeze(context.Background(), st.Params.DrawID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := h.CommitRoster(st.Params.DrawID); err == nil {
+	if _, err := h.Freeze(context.Background(), st.Params.DrawID); err == nil {
 		t.Fatal("the roster was committed a second time")
 	}
 }
@@ -229,7 +243,7 @@ func TestRosterCannotBeCommittedOnceTheRoundHasPublished(t *testing.T) {
 	h.Enter(st.Params.DrawID, names(5)...)
 
 	h.set(tRound + 1)
-	_, err := h.CommitRoster(st.Params.DrawID)
+	_, err := h.Freeze(context.Background(), st.Params.DrawID)
 	if err == nil {
 		t.Fatal("a roster was frozen after its beacon round had already published")
 	}
@@ -240,7 +254,7 @@ func TestDrawCannotRunBeforeItsRound(t *testing.T) {
 	st, _ := h.Create("t", 1, roster.Private, time.Unix(tCutoff, 0))
 	h.Enter(st.Params.DrawID, names(5)...)
 	h.set(tCutoff)
-	h.CommitRoster(st.Params.DrawID)
+	h.Freeze(context.Background(), st.Params.DrawID)
 
 	h.set(tRound - 1)
 	if _, err := h.Run(context.Background(), st.Params.DrawID); err == nil {
@@ -268,7 +282,7 @@ func TestCannotDrawMoreWinnersThanEntries(t *testing.T) {
 	st, _ := h.Create("t", 10, roster.Private, time.Unix(tCutoff, 0))
 	h.Enter(st.Params.DrawID, names(3)...)
 	h.set(tCutoff)
-	if _, err := h.CommitRoster(st.Params.DrawID); err == nil {
+	if _, err := h.Freeze(context.Background(), st.Params.DrawID); err == nil {
 		t.Fatal("committed a roster too small for the promised winner count")
 	}
 }
@@ -281,7 +295,7 @@ func TestReceiptsAreUnavailableUntilTheRosterIsFrozen(t *testing.T) {
 		t.Fatal("issued a receipt before the root existed")
 	}
 	h.set(tCutoff)
-	h.CommitRoster(st.Params.DrawID)
+	h.Freeze(context.Background(), st.Params.DrawID)
 
 	rec, err := h.Receipt(st.Params.DrawID, 2)
 	if err != nil {
@@ -359,7 +373,7 @@ func TestFreezeDueFreezesOnlyDrawsPastTheirCutoff(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	frozen, err := h.FreezeDue()
+	frozen, err := h.FreezeDue(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -368,11 +382,11 @@ func TestFreezeDueFreezesOnlyDrawsPastTheirCutoff(t *testing.T) {
 	}
 
 	h.set(tCutoff)
-	frozen, err = h.FreezeDue()
+	frozen, err = h.FreezeDue(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(frozen) != 1 || frozen[0] != due.Params.DrawID {
+	if len(frozen) != 1 || frozen[0].Draw.Params.DrawID != due.Params.DrawID {
 		t.Fatalf("froze %v, want only %s", frozen, due.Params.DrawID)
 	}
 	st, _ := h.Get(due.Params.DrawID)
@@ -384,7 +398,7 @@ func TestFreezeDueFreezesOnlyDrawsPastTheirCutoff(t *testing.T) {
 		t.Fatalf("a draw short of entries was frozen: %q", st.State)
 	}
 
-	if frozen, err = h.FreezeDue(); err != nil || len(frozen) != 0 {
+	if frozen, err = h.FreezeDue(context.Background()); err != nil || len(frozen) != 0 {
 		t.Fatalf("second pass froze %v, err %v", frozen, err)
 	}
 }
@@ -397,7 +411,7 @@ func TestFreezeDueLeavesADrawWhoseRoundHasPublished(t *testing.T) {
 	}
 
 	h.set(tRound)
-	frozen, err := h.FreezeDue()
+	frozen, err := h.FreezeDue(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}

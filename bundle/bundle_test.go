@@ -61,7 +61,7 @@ func honest(t *testing.T, winners int, disc roster.Disclosure, n int) (bundle.Bu
 		t.Fatal(err)
 	}
 	now = time.Unix(tCutoff, 0)
-	if _, err := svc.CommitRoster(st.Params.DrawID); err != nil {
+	if _, err := svc.Freeze(context.Background(), st.Params.DrawID); err != nil {
 		t.Fatal(err)
 	}
 	now = time.Unix(tRound+6, 0)

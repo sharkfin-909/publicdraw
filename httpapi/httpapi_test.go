@@ -33,21 +33,23 @@ type env struct {
 	now *time.Time
 }
 
-func newEnv(t *testing.T) *env {
+func newEnv(t *testing.T, opts ...service.Option) *env {
 	t.Helper()
 	_, priv, _ := draw.GenerateKey()
 	now := time.Unix(tCreate, 0)
-	svc, err := service.New(t.TempDir(), "test-log", priv,
+	base := []service.Option{
 		service.WithClock(func() time.Time { return now }),
 		service.WithFetcher(func(context.Context, uint64) (beacon.Round, error) {
 			return beacon.Round{Round: vecRound, Signature: vecSig}, nil
 		}),
-	)
+	}
+	svc, err := service.New(t.TempDir(), "test-log", priv, append(base, opts...)...)
 	if err != nil {
 		t.Fatal(err)
 	}
 	s := httptest.NewServer(httpapi.New(svc))
 	t.Cleanup(s.Close)
+	t.Cleanup(func() { svc.Close() })
 	return &env{srv: s, now: &now}
 }
 

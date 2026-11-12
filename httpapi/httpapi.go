@@ -100,15 +100,20 @@ func fail(w http.ResponseWriter, code int, err error) {
 	write(w, code, map[string]string{"error": err.Error()})
 }
 
-// badRequest is returned for anything the caller could have avoided, which
-// here means every ordering violation: entering after cutoff, committing
-// twice, drawing before the round.
+// svcErr maps the service's errors onto status codes. A refusal — entering
+// after the cutoff, freezing twice, drawing before the round — is something the
+// caller could have avoided, so it is a 409. Anything the service does not
+// classify is a fault on this side, and is reported as one rather than blamed
+// on the caller.
 func svcErr(w http.ResponseWriter, err error) {
-	if strings.Contains(err.Error(), "no draw") {
+	switch {
+	case errors.Is(err, service.ErrNotFound):
 		fail(w, http.StatusNotFound, err)
-		return
+	case errors.Is(err, service.ErrRefused):
+		fail(w, http.StatusConflict, err)
+	default:
+		fail(w, http.StatusInternalServerError, err)
 	}
-	fail(w, http.StatusConflict, err)
 }
 
 func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
@@ -138,10 +143,6 @@ func (s *Server) createDraw(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, err)
 		return
 	}
-	cutoff := time.Unix(req.CutoffAt, 0)
-	if req.CutoffAt == 0 && req.OpenFor > 0 {
-		cutoff = time.Now().Add(time.Duration(req.OpenFor) * time.Second)
-	}
 	if req.Winners == 0 {
 		req.Winners = 1
 	}
@@ -149,7 +150,13 @@ func (s *Server) createDraw(w http.ResponseWriter, r *http.Request) {
 	if disc == "" {
 		disc = roster.Private
 	}
-	st, err := s.svc.Create(req.Title, req.Winners, disc, cutoff)
+	var st *service.Stored
+	var err error
+	if req.CutoffAt == 0 && req.OpenFor > 0 {
+		st, err = s.svc.CreateOpenFor(req.Title, req.Winners, disc, time.Duration(req.OpenFor)*time.Second)
+	} else {
+		st, err = s.svc.Create(req.Title, req.Winners, disc, time.Unix(req.CutoffAt, 0))
+	}
 	if err != nil {
 		fail(w, http.StatusBadRequest, err)
 		return
@@ -208,31 +215,15 @@ func (s *Server) listDraws(w http.ResponseWriter, _ *http.Request) {
 	write(w, http.StatusOK, map[string]any{"draws": ids})
 }
 
-// getDraw never returns the sealed entries or their salts: those are the
-// roster's hiding, and handing them out would make private disclosure a lie.
+// getDraw serves the service's public view, which never carries the sealed
+// entries or their salts.
 func (s *Server) getDraw(w http.ResponseWriter, r *http.Request) {
-	st, err := s.svc.Get(r.PathValue("id"))
+	v, err := s.svc.View(r.PathValue("id"))
 	if err != nil {
 		svcErr(w, err)
 		return
 	}
-	out := map[string]any{
-		"params": st.Params, "params_sig": st.ParamsSig,
-		"state": st.State, "entry_count": len(st.Sealed),
-		"visibility": st.Visible(),
-	}
-	if st.RosterCommit != nil {
-		out["roster_commit"] = st.RosterCommit
-		out["roster_sig"] = st.RosterSig
-	}
-	if st.Params.Disclosure == roster.Public && st.State != service.StateOpen {
-		labels := make([]string, len(st.Sealed))
-		for i, e := range st.Sealed {
-			labels[i] = e.Entry.Label
-		}
-		out["labels"] = labels
-	}
-	write(w, http.StatusOK, out)
+	write(w, http.StatusOK, v)
 }
 
 type entriesReq struct {
@@ -260,39 +251,31 @@ func (s *Server) addEntries(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) commit(w http.ResponseWriter, r *http.Request) {
-	st, err := s.svc.CommitRoster(r.PathValue("id"))
+	f, err := s.svc.Freeze(r.Context(), r.PathValue("id"))
 	if err != nil {
 		svcErr(w, err)
 		return
 	}
-	write(w, http.StatusOK, map[string]any{
-		"roster_commit": st.RosterCommit, "roster_sig": st.RosterSig, "state": st.State,
-	})
+	out := map[string]any{
+		"roster_commit": f.Draw.RosterCommit, "roster_sig": f.Draw.RosterSig, "state": f.Draw.State,
+		"log_head": f.Head, "anchored": f.Anchor != nil,
+	}
+	if f.AnchorErr != nil {
+		out["anchor_error"] = f.AnchorErr.Error()
+	}
+	write(w, http.StatusOK, out)
 }
 
 // leaves publishes every committed leaf. Safe in either disclosure mode, and
 // the only thing an entrant needs — besides the salt they were given at entry
 // — to confirm they were in the roster the winners came from.
 func (s *Server) leaves(w http.ResponseWriter, r *http.Request) {
-	st, err := s.svc.Get(r.PathValue("id"))
+	l, err := s.svc.Leaves(r.PathValue("id"))
 	if err != nil {
 		svcErr(w, err)
 		return
 	}
-	if st.RosterCommit == nil {
-		fail(w, http.StatusConflict, errors.New("roster is not committed yet"))
-		return
-	}
-	ros, err := roster.Load(st.Sealed)
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err)
-		return
-	}
-	write(w, http.StatusOK, map[string]any{
-		"root":   st.RosterCommit.Root,
-		"size":   st.RosterCommit.Size,
-		"leaves": ros.Leaves(),
-	})
+	write(w, http.StatusOK, l)
 }
 
 // proof serves the public half of a receipt only.
