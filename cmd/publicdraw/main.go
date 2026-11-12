@@ -144,7 +144,11 @@ func keyPath() string {
 	return *dirFlag + "/operator.key.json"
 }
 
-func openService() (*service.Service, error) {
+// openReader opens the service for the commands that only look — leaves,
+// receipt, log — so they work while `serve` holds the directory.
+func openReader() (*service.Service, error) { return openService(service.ReadOnly()) }
+
+func openService(extra ...service.Option) (*service.Service, error) {
 	var kf keyFile
 	if err := readJSON(keyPath(), &kf); err != nil {
 		return nil, fmt.Errorf("%w (run: publicdraw keygen)", err)
@@ -153,7 +157,7 @@ func openService() (*service.Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	opts := []service.Option{}
+	opts := extra
 	// An empty -rekor turns anchoring off. rekor.New("") would quietly fall
 	// back to the public instance, so it must not be reached.
 	if kf.AnchorKey != "" && *rekorFlag != "" {
@@ -325,7 +329,7 @@ func cmdLeaves(args []string) error {
 	id := fs.String("draw", "", "draw id")
 	parse(fs, args)
 
-	svc, err := openService()
+	svc, err := openReader()
 	if err != nil {
 		return err
 	}
@@ -470,7 +474,7 @@ func cmdReceipt(args []string) error {
 	out := fs.String("out", "", "write the receipt here")
 	parse(fs, args)
 
-	svc, err := openService()
+	svc, err := openReader()
 	if err != nil {
 		return err
 	}
@@ -639,7 +643,7 @@ func cmdLog(args []string) error {
 	abandoned := fs.Bool("abandoned", false, "list draws logged at creation with no published result")
 	parse(fs, args)
 
-	svc, err := openService()
+	svc, err := openReader()
 	if err != nil {
 		return err
 	}

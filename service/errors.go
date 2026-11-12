@@ -21,6 +21,10 @@ var (
 	// would each keep their own idea of the log head and fork the chain.
 	ErrLocked = errors.New("service: another publicdraw process is using this directory; " +
 		"stop it, or make the change through its HTTP API")
+
+	// ErrReadOnly: the service was opened with ReadOnly and was asked to
+	// change something.
+	ErrReadOnly = errors.New("service: opened read-only; this command cannot change anything")
 )
 
 // classified carries a human message while matching one of the sentinels above

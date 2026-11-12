@@ -52,6 +52,9 @@ func (s *Service) settle(st *Stored) (translog.Record, error) {
 		return translog.Record{}, refuse("service: draw %s: log holds a different %s record than the one pending",
 			st.Params.DrawID, p.Kind)
 	case !ok:
+		if err := s.writable(); err != nil {
+			return translog.Record{}, err
+		}
 		r, err := s.log.Append(p.Kind, st.Params.DrawID, p.Payload, p.LoggedAt)
 		if err != nil {
 			return translog.Record{}, err

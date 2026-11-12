@@ -223,7 +223,8 @@ too few entries stays open and cannot be completed.
 `serve` holds its directory exclusively, and so does every CLI command that
 writes. Two processes writing one directory would each keep their own log head
 and fork the chain, after which the log no longer opens — so while `serve` is
-running, make changes through its API rather than the CLI.
+running, make changes through its API rather than the CLI. The commands that
+only look — `leaves`, `receipt` and `log` — take no lock and work alongside it.
 
 Routes marked `*` need the organiser token as `Authorization: Bearer …`, because
 they sign with the operator key, write to the log or list unlisted draws.

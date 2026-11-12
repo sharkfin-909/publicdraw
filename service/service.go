@@ -97,8 +97,9 @@ type Service struct {
 	now   func() time.Time
 	fetch func(context.Context, uint64) (beacon.Round, error)
 
-	anchor Anchorer // nil when anchoring is not configured
-	lock   *os.File // held for the service's lifetime; see ErrLocked
+	anchor   Anchorer // nil when anchoring is not configured
+	lock     *os.File // held for the service's lifetime; see ErrLocked. Nil when read-only.
+	readOnly bool
 }
 
 // Option customises a Service.
@@ -119,10 +120,27 @@ func WithFetcher(f func(context.Context, uint64) (beacon.Round, error)) Option {
 	return func(s *Service) { s.fetch = f }
 }
 
+// ReadOnly opens the service for looking only: it takes no lock, so it works
+// beside a running `serve`, and every change is refused with ErrReadOnly.
+// Recovery is skipped too — finishing a half-logged change is a write, and is
+// the job of whichever process holds the directory. What a reader sees is what
+// is on disk, which may lag a writer by the change in flight.
+func ReadOnly() Option { return func(s *Service) { s.readOnly = true } }
+
+// writable refuses a change on a read-only service. Every write funnels
+// through save, settle or anchoring, and each asks here first.
+func (s *Service) writable() error {
+	if s.readOnly {
+		return ErrReadOnly
+	}
+	return nil
+}
+
 // New opens (or creates) a service rooted at dir, and holds it exclusively
 // until Close: a second process writing the same directory would keep its own
 // log head and fork the chain. Any state change a crash left half-logged is
-// finished before New returns.
+// finished before New returns. With ReadOnly it does neither, and holds
+// nothing.
 func New(dir, logID string, priv ed25519.PrivateKey, opts ...Option) (*Service, error) {
 	if len(priv) != ed25519.PrivateKeySize {
 		return nil, errors.New("service: bad operator private key")
@@ -134,6 +152,17 @@ func New(dir, logID string, priv ed25519.PrivateKey, opts ...Option) (*Service, 
 	s.fetch = func(ctx context.Context, r uint64) (beacon.Round, error) { return s.chain.Fetch(ctx, r) }
 	for _, o := range opts {
 		o(s)
+	}
+	if s.readOnly {
+		if _, err := os.Stat(filepath.Join(dir, "draws")); err != nil {
+			return nil, err
+		}
+		l, err := translog.Open(filepath.Join(dir, "log.jsonl"), logID)
+		if err != nil {
+			return nil, err
+		}
+		s.log = l
+		return s, nil
 	}
 	if err := os.MkdirAll(filepath.Join(dir, "draws"), 0o755); err != nil {
 		return nil, err
@@ -157,7 +186,12 @@ func New(dir, logID string, priv ed25519.PrivateKey, opts ...Option) (*Service, 
 }
 
 // Close releases the service directory for another process.
-func (s *Service) Close() error { return s.lock.Close() }
+func (s *Service) Close() error {
+	if s.lock == nil {
+		return nil
+	}
+	return s.lock.Close()
+}
 
 // OperatorKey returns the public key bundles are verified against.
 func (s *Service) OperatorKey() string { return hex.EncodeToString(s.pub) }
@@ -186,6 +220,9 @@ func (s *Service) load(id string) (*Stored, error) {
 }
 
 func (s *Service) save(st *Stored) error {
+	if err := s.writable(); err != nil {
+		return err
+	}
 	b, err := json.MarshalIndent(st, "", "  ")
 	if err != nil {
 		return err

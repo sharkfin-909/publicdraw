@@ -102,6 +102,9 @@ func (s *Service) Reanchor(ctx context.Context, id string) (Frozen, error) {
 	if !s.AnchorsEnabled() {
 		return Frozen{}, errors.New("service: anchoring is not configured")
 	}
+	if err := s.writable(); err != nil {
+		return Frozen{}, err
+	}
 	f := Frozen{Draw: st, Head: rec.Head}
 	s.anchorFrozen(ctx, &f)
 	return f, f.AnchorErr

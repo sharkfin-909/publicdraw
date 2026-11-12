@@ -325,3 +325,42 @@ func TestCreateOpenForCountsFromTheServiceClock(t *testing.T) {
 		t.Fatalf("zero duration: %v, want ErrRefused", err)
 	}
 }
+
+func TestAReaderOpensBesideTheWriterAndChangesNothing(t *testing.T) {
+	dir := t.TempDir()
+	_, priv, _ := draw.GenerateKey()
+	w, err := New(dir, "test-log", priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	st, err := w.Create("d", 1, roster.Private, time.Now().Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := st.Params.DrawID
+
+	r, err := New(dir, "test-log", priv, ReadOnly())
+	if err != nil {
+		t.Fatalf("reader beside a writer: %v", err)
+	}
+	defer r.Close()
+	if got, err := r.Get(id); err != nil || got.Params.DrawID != id {
+		t.Fatalf("reader Get: %v, %v", got, err)
+	}
+	if r.Log().Len() != w.Log().Len() {
+		t.Fatalf("reader sees %d records, writer %d", r.Log().Len(), w.Log().Len())
+	}
+	if _, err := r.Enter(id, "alice"); !errors.Is(err, ErrReadOnly) {
+		t.Fatalf("reader Enter: %v, want ErrReadOnly", err)
+	}
+	if _, err := r.Create("x", 1, roster.Private, time.Now().Add(time.Hour)); !errors.Is(err, ErrReadOnly) {
+		t.Fatalf("reader Create: %v, want ErrReadOnly", err)
+	}
+	if n, _ := w.List(); len(n) != 1 {
+		t.Fatalf("%d draws on disk, want 1", len(n))
+	}
+	if w.Log().Len() != 1 {
+		t.Fatalf("log has %d records after refused writes, want 1", w.Log().Len())
+	}
+}
