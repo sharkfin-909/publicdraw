@@ -92,8 +92,13 @@ type Sealed struct {
 }
 
 // Leaf computes this entry's Merkle leaf.
-func (s Sealed) Leaf() hashing.Digest {
-	return merkle.LeafHash(s.Salt, s.Entry.CanonicalBytes())
+func (s Sealed) Leaf() hashing.Digest { return LeafOf(s.Salt, s.Entry) }
+
+// LeafOf is the committed leaf of an entry under its salt. It is the one
+// definition every inclusion check uses — the receipt, the served proof, the
+// published leaves and each winner — so they cannot drift apart.
+func LeafOf(salt []byte, e Entry) hashing.Digest {
+	return merkle.LeafHash(salt, e.CanonicalBytes())
 }
 
 // Commitment is the public description of a frozen roster. Commit binds Size
@@ -227,17 +232,23 @@ type Proof struct {
 	MerklePath []hashing.Digest `json:"merkle_path"`
 }
 
-// VerifyProof checks a leaf the holder computed themselves, from their own
-// salt and label, against a path served by the operator.
-func VerifyProof(p Proof, salt []byte, label string) bool {
-	leaf := merkle.LeafHash(salt, Entry{Label: label}.CanonicalBytes())
-	return merkle.Verify(leaf, p.Index, p.Size, p.MerklePath, p.Root)
+// Proof is the public half of the receipt, without the salt and label the
+// entrant holds — so a receipt is checked exactly as a served proof is.
+func (r Receipt) Proof() Proof {
+	return Proof{DrawID: r.DrawID, Root: r.Root, Size: r.Size, Index: r.Index, MerklePath: r.MerklePath}
 }
 
-// VerifyReceipt checks a receipt against the root it claims membership in.
-func VerifyReceipt(r Receipt, salt []byte) bool {
-	leaf := merkle.LeafHash(salt, r.Entry.CanonicalBytes())
-	return merkle.Verify(leaf, r.Index, r.Size, r.MerklePath, r.Root)
+// VerifyProof checks an entrant's own salt and label against a path, which may
+// have been served by the operator. A path that does not climb to the root
+// fails, so a served proof cannot vouch for a leaf that was never in the tree.
+// A receipt is checked as VerifyProof(r.Proof(), salt, r.Entry.Label).
+func VerifyProof(p Proof, salt []byte, label string) bool {
+	return Includes(p.Root, p.Size, p.Index, p.MerklePath, LeafOf(salt, Entry{Label: label}))
+}
+
+// Includes reports whether leaf sits at index in the tree of this size and root.
+func Includes(root hashing.Digest, size, index int, path []hashing.Digest, leaf hashing.Digest) bool {
+	return merkle.Verify(leaf, index, size, path, root)
 }
 
 // Leaves returns every leaf, in committed order.

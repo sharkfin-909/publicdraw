@@ -17,7 +17,6 @@ import (
 	"github.com/sharkfin-909/publicdraw/beacon"
 	"github.com/sharkfin-909/publicdraw/draw"
 	"github.com/sharkfin-909/publicdraw/hashing"
-	"github.com/sharkfin-909/publicdraw/merkle"
 	"github.com/sharkfin-909/publicdraw/rekor"
 	"github.com/sharkfin-909/publicdraw/roster"
 	"github.com/sharkfin-909/publicdraw/translog"
@@ -396,7 +395,7 @@ func winnersAtIndex(b Bundle) bool {
 		if err != nil || w.Index < 0 || w.Index >= len(b.Roster.Leaves) {
 			return false
 		}
-		if merkle.LeafHash(salt, w.Entry.CanonicalBytes()) != b.Roster.Leaves[w.Index] {
+		if roster.LeafOf(salt, w.Entry) != b.Roster.Leaves[w.Index] {
 			return false
 		}
 	}
@@ -412,8 +411,7 @@ func winnersProven(b Bundle, rc draw.RosterCommitment) bool {
 		if err != nil {
 			return false
 		}
-		leaf := merkle.LeafHash(salt, w.Entry.CanonicalBytes())
-		if !merkle.Verify(leaf, w.Index, rc.Size, w.MerklePath, rc.Root) {
+		if !roster.Includes(rc.Root, rc.Size, w.Index, w.MerklePath, roster.LeafOf(salt, w.Entry)) {
 			return false
 		}
 	}

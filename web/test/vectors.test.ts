@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 import { Tag, lp, tagged, toHex, fromHex, utf8 } from '../app/lib/hashing'
-import { leafHash, nodeHash, rootFromLeaves } from '../app/lib/merkle'
+import { leafHash, nodeHash, rootFromLeaves, canonicalEntryBytes } from '../app/lib/merkle'
 import { rosterCommitValue, seed, select } from '../app/lib/draw'
 import { genesis, headAfter } from '../app/lib/translog'
 import { randomnessOf, verifyRound, timeOfRound, roundAt } from '../app/lib/beacon'
@@ -24,13 +24,8 @@ const u32be = (n: number) => {
   new DataView(b.buffer).setUint32(0, n, false)
   return b
 }
-const canonicalEntry = (label: string) => {
-  const e = utf8(label)
-  const out = new Uint8Array(4 + e.length)
-  out.set(u32be(e.length), 0)
-  out.set(e, 4)
-  return out
-}
+// The shipped encoder, not a copy of it: this is what the vectors pin.
+const canonicalEntry = canonicalEntryBytes
 
 describe('tags', () => {
   it('match the Go constants exactly', () => {

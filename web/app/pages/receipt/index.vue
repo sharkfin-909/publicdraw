@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { verifyReceipt } from '~/lib/verify'
+import { checkMembership } from '~/lib/membership'
+import { parseReceiptLink } from '~/lib/receiptLink'
 import type { Receipt } from '~/lib/types'
 
 useSeo({
@@ -19,17 +20,14 @@ const linkError = ref('')
  */
 function openLink() {
   linkError.value = ''
-  const raw = link.value.trim()
-  if (!raw) return
-  try {
-    const u = raw.startsWith('http') ? new URL(raw) : new URL(raw, location.origin)
-    const m = u.pathname.match(/\/receipt\/([^/]+)\/(\d+)\/?$/)
-    if (!m) throw new Error('that is not a receipt link')
-    navigateTo({ path: `/receipt/${m[1]}/${m[2]}`, hash: u.hash })
-  } catch {
+  if (!link.value.trim()) return
+  const l = parseReceiptLink(link.value, location.origin)
+  if (!l) {
     linkError.value =
       'That does not look like a receipt link. It should end in /receipt/<draw>/<position> and carry a #s= part.'
+    return
   }
+  navigateTo({ path: `/receipt/${l.drawId}/${l.index}`, hash: l.salt ? `#s=${l.salt}` : '' })
 }
 
 // Kept for anyone holding a receipt as a file rather than a link.
@@ -42,7 +40,8 @@ function checkJson() {
   result.value = null
   try {
     const r = JSON.parse(raw.value) as Receipt
-    result.value = { ok: verifyReceipt(r), receipt: r }
+    const m = checkMembership({ salt: r.salt, label: r.entry.label }, { path: r })
+    result.value = { ok: m.included, receipt: r }
   } catch (e) {
     err.value = e instanceof Error ? e.message : String(e)
   }

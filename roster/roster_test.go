@@ -60,7 +60,7 @@ func TestReceiptsProveInclusion(t *testing.T) {
 		}
 		rec := Receipt{Root: c.Root, Size: c.Size, Index: i, Entry: sealed.Entry,
 			Salt: hex.EncodeToString(sealed.Salt), MerklePath: path}
-		if !VerifyReceipt(rec, sealed.Salt) {
+		if !VerifyProof(rec.Proof(), sealed.Salt, rec.Entry.Label) {
 			t.Fatalf("receipt for index %d did not verify", i)
 		}
 	}
@@ -74,7 +74,7 @@ func TestReceiptFromAnotherRosterIsRejected(t *testing.T) {
 	sealed, path, _ := a.Open(3)
 	rec := Receipt{Root: b.Commitment().Root, Size: 8, Index: 3, Entry: sealed.Entry,
 		Salt: hex.EncodeToString(sealed.Salt), MerklePath: path}
-	if VerifyReceipt(rec, sealed.Salt) {
+	if VerifyProof(rec.Proof(), sealed.Salt, rec.Entry.Label) {
 		t.Fatal("a receipt verified against a roster it did not belong to")
 	}
 }
@@ -85,7 +85,7 @@ func TestReceiptWithAlteredLabelIsRejected(t *testing.T) {
 	sealed, path, _ := r.Open(2)
 	rec := Receipt{Root: c.Root, Size: c.Size, Index: 2, Entry: Entry{Label: "someone else"},
 		Salt: hex.EncodeToString(sealed.Salt), MerklePath: path}
-	if VerifyReceipt(rec, sealed.Salt) {
+	if VerifyProof(rec.Proof(), sealed.Salt, rec.Entry.Label) {
 		t.Fatal("a receipt verified with a substituted label")
 	}
 }

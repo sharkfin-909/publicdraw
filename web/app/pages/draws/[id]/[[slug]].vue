@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Admission, Bundle, DrawSummary } from '~/lib/types'
-import { verifyBundle, findOwnLeaf, type Report } from '~/lib/verify'
+import { verifyBundle, type Report } from '~/lib/verify'
+import { checkMembership } from '~/lib/membership'
 import { timeOfRound } from '~/lib/beacon'
 import { drawPath } from '~/utils/seo'
 
@@ -140,9 +141,15 @@ async function loadLeaves() {
 }
 
 function runSelfCheck() {
-  selfResult.value = leafList.value
-    ? findOwnLeaf(selfCheck.salt.trim(), selfCheck.label.trim(), leafList.value.leaves)
-    : null
+  // Prefer the verified bundle's leaves to the separately served list.
+  const leaves = bundle.value?.roster.leaves ?? leafList.value?.leaves
+  if (!leaves) return (selfResult.value = null)
+  const m = checkMembership(
+    { salt: selfCheck.salt, label: selfCheck.label.trim() },
+    { leaves },
+    draw.value?.roster_commit?.root,
+  )
+  selfResult.value = { found: m.ok, index: m.index, leaf: m.leaf }
 }
 
 const run = () => act('run', () => api.run(id.value))

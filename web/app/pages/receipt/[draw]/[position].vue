@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { verifyProof } from '~/lib/verify'
+import { checkMembership, type Membership } from '~/lib/membership'
+import { saltFromFragment } from '~/lib/receiptLink'
 import type { Proof } from '~/lib/types'
 
 /**
@@ -25,7 +26,8 @@ const label = ref('')
 const salt = ref('')
 const proof = ref<Proof>()
 const draw = ref<Awaited<ReturnType<typeof api.getDraw>>>()
-const state = ref<'idle' | 'checking' | 'pass' | 'fail'>('idle')
+const state = ref<'idle' | 'checking' | 'pass' | 'fail' | 'other-roster'>('idle')
+const result = ref<Membership>()
 const err = ref('')
 
 useSeo({
@@ -42,8 +44,7 @@ onMounted(async () => {
   // gets emailed around. It is deliberately left in the address bar: stripping
   // it would break reload, and it is the entrant's own secret in the
   // entrant's own browser, arriving from a link they already hold.
-  const frag = new URLSearchParams(location.hash.replace(/^#/, ''))
-  salt.value = frag.get('s') ?? ''
+  salt.value = saltFromFragment(location.hash)
 
   try {
     const [p, d] = await Promise.all([
@@ -65,8 +66,15 @@ function check() {
     return
   }
   state.value = 'checking'
-  const ok = verifyProof(proof.value, salt.value.trim(), label.value.trim())
-  state.value = ok ? 'pass' : 'fail'
+  // The proof's root is the server's word; the draw's committed root is what
+  // the organiser signed. The check compares them, so the entrant need not.
+  const m = checkMembership(
+    { salt: salt.value, label: label.value.trim() },
+    { path: proof.value },
+    draw.value?.roster_commit?.root,
+  )
+  result.value = m
+  state.value = !m.included ? 'fail' : m.matchesCommitted === false ? 'other-roster' : 'pass'
 }
 </script>
 
@@ -130,11 +138,26 @@ function check() {
         the deciding randomness existed.
       </p>
       <p class="mt-[18px] mb-0 rounded-box bg-seal-bg px-3.5 py-3 text-[0.95rem] leading-[1.55] [&_a]:font-semibold">
-        Now check that this roster is the one the winners came from — the root above should match
-        the one on the published result.
+        <template v-if="result?.matchesCommitted">
+          Checked against the roster this draw signed and committed to. The draw page checks that
+          the winners came from that same roster.
+        </template>
+        <template v-else>
+          The draw's committed roster could not be loaded to compare against, so check that the
+          root above matches the one on the draw page.
+        </template>
         <NuxtLink :to="`/draws/${drawId}`">Open the draw →</NuxtLink>
       </p>
     </section>
+
+    <UiCard v-if="state === 'other-roster'" class="border-fault!">
+      <h2 class="text-fault">That proof is for a different roster</h2>
+      <p class="mt-2.5 mb-0 text-[1rem]">
+        Your entry is in the roster this proof describes, but that is not the roster draw
+        {{ drawId }} signed and committed to. The proof you were served does not show you were in
+        this draw. That is worth raising with whoever ran it.
+      </p>
+    </UiCard>
 
     <UiCard v-if="state === 'fail'" class="border-fault!">
       <h2 class="text-fault">That does not match</h2>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Admission } from '~/lib/types'
+import { receiptLink } from '~/lib/receiptLink'
 
 const props = defineProps<{ admitted: Admission[]; drawId: string }>()
 
@@ -8,7 +9,7 @@ const origin = computed(() =>
 )
 /** The salt rides in the fragment, which browsers never send to a server. */
 const linkFor = (a: Admission) =>
-  `${origin.value}/receipt/${props.drawId}/${a.index}#s=${a.salt}`
+  receiptLink(origin.value, { drawId: props.drawId, index: a.index, salt: a.salt })
 
 const asText = computed(() =>
   props.admitted.map((a) => `${a.label}\t${linkFor(a)}`).join('\n'),

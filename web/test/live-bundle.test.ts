@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { verifyBundle, verifyReceipt, findOwnLeaf } from '../app/lib/verify'
+import { verifyBundle } from '../app/lib/verify'
+import { checkMembership } from '../app/lib/membership'
 import type { Admission, Bundle, Receipt } from '../app/lib/types'
 
 /**
@@ -25,8 +26,13 @@ describe('a live bundle from the Go service', () => {
   })
 
   it('accepts a genuine receipt', () => {
-    expect(verifyReceipt(receipt)).toBe(true)
-    expect(receipt.root).toBe(bundle.roster.commitment.root)
+    const m = checkMembership(
+      { salt: receipt.salt, label: receipt.entry.label },
+      { path: receipt },
+      bundle.roster.commitment.root,
+    )
+    expect(m.ok).toBe(true)
+    expect(m.matchesCommitted).toBe(true)
   })
 
   it('rejects a substituted winner', () => {
@@ -54,7 +60,7 @@ describe('a live bundle from the Go service', () => {
   })
 
   it('rejects an altered receipt label', () => {
-    expect(verifyReceipt({ ...receipt, entry: { label: 'someone else' } })).toBe(false)
+    expect(checkMembership({ salt: receipt.salt, label: 'someone else' }, { path: receipt }).included).toBe(false)
   })
 
   // The receipt-free path: an entrant holding the salt they were handed when
@@ -63,15 +69,15 @@ describe('a live bundle from the Go service', () => {
   it('lets every entrant find their own leaf from the salt they were given', () => {
     expect(admissions.length).toBe(bundle.roster.leaves.length)
     for (const a of admissions) {
-      const found = findOwnLeaf(a.salt, a.label, bundle.roster.leaves)
-      expect(found.found).toBe(true)
-      expect(found.index).toBe(a.index)
+      const m = checkMembership(a, { leaves: bundle.roster.leaves }, bundle.roster.commitment.root)
+      expect(m.ok).toBe(true)
+      expect(m.index).toBe(a.index)
     }
   })
 
   it('does not find a leaf for someone who never entered', () => {
     const a = admissions[0]!
-    expect(findOwnLeaf(a.salt, 'someone-who-never-entered', bundle.roster.leaves).found).toBe(false)
+    expect(checkMembership({ salt: a.salt, label: 'someone-who-never-entered' }, { leaves: bundle.roster.leaves }).included).toBe(false)
   })
 
   it('rejects a bundle whose published leaves were pruned', () => {

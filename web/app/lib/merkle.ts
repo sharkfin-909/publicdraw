@@ -10,10 +10,27 @@
  *   Odd nodes are promoted unchanged, never duplicated. Duplicating the last
  *   node makes distinct leaf sets collide to one root — CVE-2012-2459.
  */
-import { Tag, tagged, equal } from './hashing'
+import { Tag, tagged, equal, u32, fromHex } from './hashing'
 
 export function leafHash(salt: Uint8Array, entry: Uint8Array): Uint8Array {
   return tagged(Tag.leaf, salt, entry)
+}
+
+/** Entry.CanonicalBytes in Go: the label, length-prefixed. */
+export function canonicalEntryBytes(label: string): Uint8Array {
+  const enc = new TextEncoder().encode(label)
+  const out = new Uint8Array(4 + enc.length)
+  out.set(u32(enc.length), 0)
+  out.set(enc, 4)
+  return out
+}
+
+/**
+ * The committed leaf of an entry under its salt — roster.LeafOf in Go. Every
+ * inclusion check derives the leaf here, so they cannot drift apart.
+ */
+export function entryLeaf(saltHex: string, label: string): Uint8Array {
+  return leafHash(fromHex(saltHex), canonicalEntryBytes(label))
 }
 
 export function nodeHash(left: Uint8Array, right: Uint8Array): Uint8Array {

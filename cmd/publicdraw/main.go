@@ -623,7 +623,7 @@ func cmdCheckReceipt(args []string) error {
 	if err != nil {
 		return err
 	}
-	if !roster.VerifyReceipt(rec, salt) {
+	if !roster.VerifyProof(rec.Proof(), salt, rec.Entry.Label) {
 		fmt.Printf("FAILED — %q is not entry %d of the roster rooted at %s\n", rec.Entry.Label, rec.Index, rec.Root)
 		os.Exit(1)
 	}

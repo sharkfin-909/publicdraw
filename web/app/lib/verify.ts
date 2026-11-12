@@ -9,8 +9,8 @@
  * It never short-circuits, and a skipped check is never counted as a pass.
  */
 import { ed25519 } from '@noble/curves/ed25519'
-import { fromHex, toHex, equal, u32 } from './hashing'
-import { leafHash, verifyPath, rootFromLeaves } from './merkle'
+import { fromHex, toHex, equal } from './hashing'
+import { entryLeaf, verifyPath, rootFromLeaves } from './merkle'
 import { rosterCommitValue, seed, select, paramsSigningBytes, rosterSigningBytes } from './draw'
 import { replay } from './translog'
 import { QUICKNET, randomnessOf, timeOfRound, verifyRound } from './beacon'
@@ -38,15 +38,6 @@ export interface Report {
   ok: boolean
   skipped: number
   checks: Check[]
-}
-
-function canonicalEntryBytes(label: string): Uint8Array {
-  // Entry.CanonicalBytes in Go: the label, length-prefixed.
-  const enc = new TextEncoder().encode(label)
-  const out = new Uint8Array(4 + enc.length)
-  out.set(u32(enc.length), 0)
-  out.set(enc, 4)
-  return out
 }
 
 export function verifyBundle(b: Bundle): Report {
@@ -198,7 +189,7 @@ export function verifyBundle(b: Bundle): Report {
       try {
         let ok = true
         for (let i = 0; i < entries.length; i++) {
-          const leaf = leafHash(fromHex(entries[i]!.salt), canonicalEntryBytes(entries[i]!.entry.label))
+          const leaf = entryLeaf(entries[i]!.salt, entries[i]!.entry.label)
           if (!leaves[i] || !equal(leaf, leaves[i]!)) {
             ok = false
             break
@@ -225,7 +216,7 @@ export function verifyBundle(b: Bundle): Report {
   let atIndex = b.result.winners.length > 0
   try {
     for (const w of b.result.winners) {
-      const leaf = leafHash(fromHex(w.salt), canonicalEntryBytes(w.entry.label))
+      const leaf = entryLeaf(w.salt, w.entry.label)
       if (w.index < 0 || w.index >= leaves.length || !equal(leaf, leaves[w.index]!)) {
         atIndex = false
         break
@@ -243,7 +234,7 @@ export function verifyBundle(b: Bundle): Report {
   let proven = b.result.winners.length > 0
   try {
     for (const w of b.result.winners) {
-      const leaf = leafHash(fromHex(w.salt), canonicalEntryBytes(w.entry.label))
+      const leaf = entryLeaf(w.salt, w.entry.label)
       if (!verifyPath(leaf, w.index, rc.size, w.merkle_path.map(fromHex), fromHex(rc.root))) {
         proven = false
         break
@@ -391,63 +382,6 @@ function verifyAnchor(
     'this draw was not abandoned and retried',
     `the anchor puts this draw on a public log; deciding it was the only one needs that log scanned for ${a.anchor_key.slice(0, 16)}\u2026`,
   )
-}
-
-/**
- * Check inclusion from the salt an entrant was given at entry, against the
- * published leaf list. Needs no receipt and no cooperation from the organiser
- * beyond publishing the leaves — which is the point of publishing them.
- */
-export function findOwnLeaf(
-  salt: string,
-  label: string,
-  leaves: string[],
-): { found: boolean; index: number; leaf: string } {
-  try {
-    const leaf = leafHash(fromHex(salt), canonicalEntryBytes(label))
-    const hex = toHex(leaf)
-    return { found: leaves.includes(hex), index: leaves.indexOf(hex), leaf: hex }
-  } catch {
-    return { found: false, index: -1, leaf: '' }
-  }
-}
-
-/**
- * Check an inclusion proof against a salt and label the entrant holds.
- *
- * The operator supplies only the path. A path that does not climb to the
- * published root fails, so this cannot be made to return true for a leaf that
- * was never in the tree — the operator can withhold a proof, but cannot forge
- * one.
- */
-export function verifyProof(
-  p: { root: string; size: number; index: number; merkle_path: string[] },
-  saltHex: string,
-  label: string,
-): boolean {
-  try {
-    const leaf = leafHash(fromHex(saltHex), canonicalEntryBytes(label))
-    return verifyPath(leaf, p.index, p.size, p.merkle_path.map(fromHex), fromHex(p.root))
-  } catch {
-    return false
-  }
-}
-
-/** Check one entrant's receipt against the root it claims membership in. */
-export function verifyReceipt(r: {
-  root: string
-  size: number
-  index: number
-  salt: string
-  entry: { label: string }
-  merkle_path: string[]
-}): boolean {
-  try {
-    const leaf = leafHash(fromHex(r.salt), canonicalEntryBytes(r.entry.label))
-    return verifyPath(leaf, r.index, r.size, r.merkle_path.map(fromHex), fromHex(r.root))
-  } catch {
-    return false
-  }
 }
 
 export { toHex }
