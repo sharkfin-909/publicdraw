@@ -18,7 +18,8 @@
 :root {
   color-scheme: light;
 
-  --ground:   #ffffff;
+  --ground:   #f6fafd;
+  --ground-deep: #daecf8;
   --surface:  #f7f9fb;
   --raised:   #ffffff;
   --ink:      #0f1620;
@@ -31,8 +32,8 @@
   /* Each carries a job in the protocol, not a mood. */
   --seal:     #0a5f72;
   --seal-bg:  #e0edf1;
-  --beacon:    #5b3a97;
-  --beacon-bg: #eae3f4;
+  --beacon:    #785964;
+  --beacon-bg: #f1e8ec;
   --fault:    #9c1f35;
   --fault-bg: #f6e2e6;
 
@@ -47,6 +48,14 @@ html, body { margin: 0; padding: 0; }
 
 body {
   background: var(--ground);
+  /* Lightest at the die in the left margin (BeaconBackdrop: centre of the
+     margin, 18vh up), deepening towards the far corner. Fixed, like the die,
+     so the two stay together as the page scrolls. */
+  background-image: radial-gradient(
+    circle farthest-corner at max(0px, (100vw - 920px) / 4) calc(100% - 18vh),
+    var(--ground) 0%, var(--ground-deep) 35%
+  );
+  background-attachment: fixed;
   color: var(--ink);
   font-family: var(--sans);
   font-size: 15px;
@@ -77,6 +86,8 @@ p { margin: 0 0 14px; }
 .card {
   background: var(--surface); border: 1px solid var(--line);
   border-radius: 3px; padding: 20px; min-width: 0;
+  /* Faint lift off the sky-blue ground. */
+  box-shadow: 0 1px 2px rgba(15, 22, 32, 0.04), 0 6px 16px rgba(15, 22, 32, 0.05);
 }
 .card code, .card .mono { overflow-wrap: anywhere; }
 .card + .card { margin-top: 16px; }
@@ -114,6 +125,8 @@ button.ghost { background: transparent; color: var(--seal); }
 .pill.drawn     { background: var(--seal-bg);  color: var(--seal); }
 
 .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+/* The gap spaces grid cards; the stacked-card margin would offset all but the first. */
+.grid > .card + .card { margin-top: 0; }
 
 .kv { display: grid; grid-template-columns: minmax(110px, auto) minmax(0, 1fr); gap: 6px 16px; font-size: 0.88rem; }
 .kv dt { color: var(--muted); min-width: 0; }
@@ -130,7 +143,7 @@ nav.top .inner {
   max-width: 920px; margin: 0 auto; padding: 12px 20px;
   display: flex; gap: 20px; align-items: baseline; flex-wrap: wrap;
 }
-nav.top .brand { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; color: var(--ink); }
+nav.top .brand { font-family: var(--serif); font-size: 1.4rem; font-weight: 600; color: var(--ink); }
 nav.top a { font-size: 0.86rem; color: var(--muted); }
 /* The brand is not a nav item: on "/" it matched router-link-active and the
    wordmark turned teal, so the logo changed colour depending on the page. */
