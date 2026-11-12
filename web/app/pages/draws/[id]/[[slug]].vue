@@ -217,7 +217,7 @@ onMounted(() => {
       <!-- Entries, while they are open -->
       <UiCard v-if="token && draw.state === 'open'">
         <h2>Entries</h2>
-        <p class="text-[0.86rem] text-muted">
+        <p class="text-[0.95rem] text-muted">
           {{ draw.entry_count }} so far. Entering is not committing — the list is only frozen at the
           cutoff, and nothing before that point is tamper-evident.
         </p>
@@ -243,7 +243,7 @@ onMounted(() => {
       <!-- Committed, waiting for the round -->
       <UiCard v-if="token && draw.state === 'committed'">
         <h2>Roster frozen</h2>
-        <p class="text-[0.86rem] text-muted">
+        <p class="text-[0.95rem] text-muted">
           {{ draw.roster_commit?.size }} entries, signed and written to the public log. The deciding
           number does not exist yet.
         </p>
@@ -267,7 +267,7 @@ onMounted(() => {
             <span class="font-mono text-[0.85em] text-muted">#{{ w.index }}</span>
           </li>
         </ol>
-        <p v-if="bundle.result.waitlist.length" class="text-[0.82rem] text-muted">
+        <p v-if="bundle.result.waitlist.length" class="text-[0.87rem] text-muted">
           Waitlist, already in order:
           <span class="font-mono text-[0.85em]">{{ bundle.result.waitlist.slice(0, 12).map((i) => `#${i}`).join(' ') }}</span>
           <template v-if="bundle.result.waitlist.length > 12"> …</template>
@@ -288,7 +288,7 @@ onMounted(() => {
       <!-- Self-check against the published leaves -->
       <UiCard v-if="leafList">
         <h2>Check your own entry</h2>
-        <p class="text-[0.86rem] text-muted">
+        <p class="text-[0.95rem] text-muted">
           {{ leafList.size }} leaves published. If you entered, you were given a salt at that
           moment — paste it with your entry and this page will look for you in the committed list.
           Nothing is sent anywhere; the check runs here.
@@ -325,7 +325,7 @@ onMounted(() => {
         <div class="flex flex-wrap items-baseline justify-between gap-4 *:min-w-0">
           <div>
             <h2>{{ listed ? 'Published' : 'Unlisted' }}</h2>
-            <p class="mt-1.5 mb-0 max-w-[54ch] text-[0.86rem] text-muted">
+            <p class="mt-1.5 mb-0 max-w-[54ch] text-[0.95rem] text-muted">
               <template v-if="listed">
                 This draw appears in the public directory and may be indexed by search engines.
                 Winners are named on this page.
@@ -346,7 +346,7 @@ onMounted(() => {
       <!-- Entrant checks -->
       <UiCard v-if="draw.roster_commit">
         <h2>Entrant checks</h2>
-        <p class="text-[0.86rem] text-muted">
+        <p class="text-[0.95rem] text-muted">
           Each entrant confirms their own inclusion from the link they were given when they
           entered. Nothing here can look one up for them: the salt that makes a check possible was
           handed over once, at entry, and is not held on the server — which is also why the entry
@@ -355,7 +355,7 @@ onMounted(() => {
         <p class="mt-2.5 font-mono text-[0.78rem] text-muted wrap-anywhere">
           committed roster {{ draw.roster_commit.root }}
         </p>
-        <p class="mt-2 mb-0 text-[0.82rem] text-muted">
+        <p class="mt-2 mb-0 text-[0.87rem] text-muted">
           An entrant should check that root against the one on their own result page.
           <NuxtLink to="/receipt">The check page</NuxtLink> takes their link.
         </p>

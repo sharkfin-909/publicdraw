@@ -32,6 +32,12 @@ export default defineNuxtConfig({
     plugins: [tailwindcss()],
   },
 
+  // Crossfade between pages with the View Transitions API. Browsers without it,
+  // and readers who ask for reduced motion, change page instantly as before.
+  experimental: {
+    viewTransition: true,
+  },
+
   app: {
     head: {
       htmlAttrs: { lang: 'en' },

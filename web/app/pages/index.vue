@@ -60,10 +60,10 @@
     <h2 class="text-[1.05rem]">Examples</h2>
   </div>
   <UiCard as="div">
-    <p class="mb-2 text-[0.9rem]">
+    <p class="mb-2 text-[1rem]">
       Whenever there are more people than places, and everyone needs to trust the choice was fair:
     </p>
-    <ul class="m-0 list-disc pl-5 text-[0.9rem]">
+    <ul class="m-0 list-disc pl-5 text-[1rem]">
       <li>Tickets for a sold-out gig or match</li>
       <li>Homes in a new affordable housing development</li>
       <li>Places at a popular school, club or course</li>
@@ -105,7 +105,7 @@
     <h2 class="text-[1.05rem]">How it works</h2>
   </div>
   <UiCard as="div">
-    <ol class="m-0 list-decimal space-y-1.5 pl-5 text-[0.9rem]">
+    <ol class="m-0 list-decimal space-y-1.5 pl-5 text-[1rem]">
       <li>
         <strong>The rules are set.</strong> The organiser chooses how many winners there will be
         and when entries close. These are locked in straight away, before anyone enters.
@@ -128,12 +128,12 @@
         was done fairly, and you can check it yourself in your browser.
       </li>
     </ol>
-    <p class="mt-3 mb-0 text-[0.9rem]">
+    <p class="mt-3 mb-0 text-[1rem]">
       <NuxtLink to="/technical">The technical details →</NuxtLink>
     </p>
   </UiCard>
-        <!-- The two calls to action split the column evenly. -->
-        <div class="mt-[22px] grid grid-cols-2 gap-3">
+        <!-- The two calls to action split the column evenly, spaced as the cards are. -->
+        <div class="mt-4 grid grid-cols-2 gap-4">
           <UiButton to="/draws" class="text-center">See published draws</UiButton>
           <UiButton to="/verify" variant="ghost" class="text-center">Verify a result</UiButton>
         </div>

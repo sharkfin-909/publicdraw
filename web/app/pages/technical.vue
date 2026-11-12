@@ -22,7 +22,7 @@ useSeo({
       <UiCard as="div">
         <FeatureIcon name="stamp" />
         <h2 class="mb-2 text-[1.05rem]">Committed before, not after</h2>
-        <p class="m-0 text-[0.9rem]">
+        <p class="m-0 text-[1rem]">
           The rules are signed before anyone enters. The entry list is signed at the cutoff, while
           the deciding number still does not exist. An organiser who could freeze the list after
           seeing the randomness could pick the winner — so the ordering is what carries the
@@ -32,7 +32,7 @@ useSeo({
       <UiCard as="div">
         <FeatureIcon name="radio-tower" tone="beacon" />
         <h2 class="mb-2 text-[1.05rem]">Randomness nobody chose</h2>
-        <p class="m-0 text-[0.9rem]">
+        <p class="m-0 text-[1rem]">
           The deciding number comes from
           <a href="https://drand.love" rel="noopener">drand</a>, a public beacon run by
           independent organisations including Cloudflare and EPFL. No single party can predict it,
@@ -42,7 +42,7 @@ useSeo({
       <UiCard as="div">
         <FeatureIcon name="laptop-check" />
         <h2 class="mb-2 text-[1.05rem]">Checked in your browser</h2>
-        <p class="m-0 text-[0.9rem]">
+        <p class="m-0 text-[1rem]">
           Verification runs on your machine against a key pinned in the page, not on ours. An
           answer about whether a draw was honest is worth nothing when it comes from the people
           who ran it.
@@ -67,7 +67,7 @@ useSeo({
 
     <UiCard>
       <h2>The process in full</h2>
-      <p class="max-w-[62ch] text-[0.9rem] text-muted">
+      <p class="max-w-[62ch] text-[1rem] text-muted">
         Every stage of a draw, from the moment it is set up to the point anyone can check it. Each
         step can only happen after the one before, and the bundle records when each one did.
       </p>
@@ -76,7 +76,7 @@ useSeo({
         <span class="flex size-7 items-center justify-center rounded-full bg-seal-bg font-mono text-[0.78rem] text-seal">1</span>
         <div>
           <h3 class="mb-1.5 font-serif text-[1.05rem]">The rules are fixed and signed</h3>
-          <p class="m-0 text-[0.9rem]">
+          <p class="m-0 text-[1rem]">
           When a draw is created its parameters are fixed in one record: a random draw id, the
           title, the number of winners, the cutoff time, whether the entry list will be public or
           private, and the <em>target round</em> — the drand round whose randomness will decide it,
@@ -91,7 +91,7 @@ useSeo({
         <span class="flex size-7 items-center justify-center rounded-full bg-seal-bg font-mono text-[0.78rem] text-seal">2</span>
         <div>
           <h3 class="mb-1.5 font-serif text-[1.05rem]">Entries are salted as they arrive</h3>
-          <p class="m-0 text-[0.9rem]">
+          <p class="m-0 text-[1rem]">
           Each entry is given a position and 32 bytes of fresh randomness, its <em>salt</em>. The
           salt goes straight back to the entrant, inside the link they are handed, and is not kept
           on the server. What goes into the list is a <em>leaf</em>: a hash of the entry and its
@@ -104,7 +104,7 @@ useSeo({
         <span class="flex size-7 items-center justify-center rounded-full bg-seal-bg font-mono text-[0.78rem] text-seal">3</span>
         <div>
           <h3 class="mb-1.5 font-serif text-[1.05rem]">The list is frozen at the cutoff</h3>
-          <p class="m-0 text-[0.9rem]">
+          <p class="m-0 text-[1rem]">
           When entries close, the service builds a Merkle tree over the leaves, in order. Its root is
           a single fingerprint of the entire list: change, add or remove one entry and the root
           changes. The root and the number of entries are signed, written to the log, and every
@@ -118,7 +118,7 @@ useSeo({
         <span class="flex size-7 items-center justify-center rounded-full bg-seal-bg font-mono text-[0.78rem] text-seal">4</span>
         <div>
           <h3 class="mb-1.5 font-serif text-[1.05rem]">A public beacon publishes the randomness</h3>
-          <p class="m-0 text-[0.9rem]">
+          <p class="m-0 text-[1rem]">
           <a href="https://drand.love" rel="noopener">drand</a> publishes a new random value every
           three seconds. Each one is a threshold signature made jointly by independent
           organisations in the League of Entropy: no single member, and no organiser, can predict
@@ -131,7 +131,7 @@ useSeo({
         <span class="flex size-7 items-center justify-center rounded-full bg-seal-bg font-mono text-[0.78rem] text-seal">5</span>
         <div>
           <h3 class="mb-1.5 font-serif text-[1.05rem]">The winners are computed, not chosen</h3>
-          <p class="m-0 text-[0.9rem]">
+          <p class="m-0 text-[1rem]">
           A <em>seed</em> is made by hashing together the list's root, its size, the round's
           randomness and the draw id. Each entry then gets a <em>ticket</em>, a hash of the seed and
           its position, and every entry is sorted by ticket. The first ones are the winners; the
@@ -145,7 +145,7 @@ useSeo({
         <span class="flex size-7 items-center justify-center rounded-full bg-seal-bg font-mono text-[0.78rem] text-seal">6</span>
         <div>
           <h3 class="mb-1.5 font-serif text-[1.05rem]">Everything is published as a bundle</h3>
-          <p class="m-0 text-[0.9rem]">
+          <p class="m-0 text-[1rem]">
           The result is a single file holding every piece above: the signed parameters, the signed
           roster commitment, the leaves, the drand round and its signature, the winners, the log
           records, and the Rekor proof. A public draw includes every entry, so the whole list can be
@@ -158,7 +158,7 @@ useSeo({
         <span class="flex size-7 items-center justify-center rounded-full bg-seal-bg font-mono text-[0.78rem] text-seal">7</span>
         <div>
           <h3 class="mb-1.5 font-serif text-[1.05rem]">Anyone checks it, in their own browser</h3>
-          <p class="m-0 text-[0.9rem]">
+          <p class="m-0 text-[1rem]">
           The verifier on this site checks the bundle step by step: the signatures, that the
           rules were fixed before the cutoff, that the list was frozen before the randomness
           existed, the drand signature, that the winners follow from the seed, the proofs, and the
@@ -172,7 +172,7 @@ useSeo({
         <span class="flex size-7 items-center justify-center rounded-full bg-seal-bg font-mono text-[0.78rem] text-seal">8</span>
         <div>
           <h3 class="mb-1.5 font-serif text-[1.05rem]">Entrants confirm they were included</h3>
-          <p class="m-0 text-[0.9rem]">
+          <p class="m-0 text-[1rem]">
           An entrant needs only their link. With the salt in it, this site hashes their entry and looks
           for that leaf in the published list. The part of the link holding the salt is never sent
           to a server. Entrants can also keep a <em>receipt</em>, a short proof of their own place that
@@ -184,7 +184,7 @@ useSeo({
         <span class="flex size-7 items-center justify-center rounded-full bg-seal-bg font-mono text-[0.78rem] text-seal">9</span>
         <div>
           <h3 class="mb-1.5 font-serif text-[1.05rem]">The log shows draws that were abandoned</h3>
-          <p class="m-0 text-[0.9rem]">
+          <p class="m-0 text-[1rem]">
           One trick survives every check above: run a draw, dislike the result, quietly drop it and run
           another. So every creation, cutoff and result is appended to the transparency log, a chain
           in which changing any record breaks every one after it. A draw whose round has passed with

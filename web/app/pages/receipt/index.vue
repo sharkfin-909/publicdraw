@@ -69,7 +69,7 @@ function checkJson() {
           autocomplete="off"
           placeholder="https://publicdraw.truelathe.com/receipt/…/4472#s=…"
         />
-        <p class="mt-2 mb-0 text-[0.8rem] text-muted">
+        <p class="mt-2 mb-0 text-[0.85rem] text-muted">
           The part after <span class="font-mono text-[0.85em]">#</span> is the secret half and never leaves your
           browser — so paste the whole link, not a shortened one.
         </p>
@@ -81,8 +81,8 @@ function checkJson() {
     </UiCard>
 
     <UiCard as="details">
-      <summary class="cursor-pointer text-[0.92rem] font-semibold [details[open]>&]:mb-1">I have a receipt file instead</summary>
-      <p class="mt-3 text-[0.86rem] text-muted">
+      <summary class="cursor-pointer text-[1rem] font-semibold [details[open]>&]:mb-1">I have a receipt file instead</summary>
+      <p class="mt-3 text-[0.95rem] text-muted">
         Older receipts were issued as JSON. They still check the same way.
       </p>
       <label for="raw" class="mt-2.5">Paste the receipt</label>

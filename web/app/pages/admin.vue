@@ -84,7 +84,7 @@ async function create() {
 
     <UiCard v-if="!token">
       <h2>Organiser sign-in</h2>
-      <p class="text-[0.86rem] text-muted">
+      <p class="text-[0.95rem] text-muted">
         Anyone can read and verify a draw. Running one needs the organiser token.
       </p>
       <form class="gap-3 flex min-w-0 flex-col *:min-w-0" @submit.prevent="enter">
@@ -100,7 +100,7 @@ async function create() {
 
     <UiCard v-if="token">
       <h2>New draw</h2>
-      <p class="text-[0.86rem] text-muted">
+      <p class="text-[0.95rem] text-muted">
         These parameters are signed and logged now, before a single entry arrives. Changing any of
         them later produces a different draw.
       </p>
@@ -126,7 +126,7 @@ async function create() {
             </select>
           </div>
         </div>
-        <p class="m-0 text-[0.8rem] text-muted">
+        <p class="m-0 text-[0.85rem] text-muted">
           <template v-if="form.disclosure === 'private'">
             Entrants confirm their own inclusion with a receipt; nobody else's entry is published.
           </template>
@@ -162,7 +162,7 @@ async function create() {
             </div>
             <div class="flex flex-wrap items-center gap-2.5 *:min-w-0">
               <UiPill :tone="d.state">{{ d.state }}</UiPill>
-              <span class="text-[0.8rem] text-muted">
+              <span class="text-[0.85rem] text-muted">
                 {{ d.entry_count }} {{ d.entry_count === 1 ? 'entry' : 'entries' }} ·
                 {{ d.params.winners }} to win · {{ d.params.disclosure }}
               </span>

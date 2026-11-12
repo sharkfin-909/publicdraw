@@ -13,9 +13,9 @@
   utility (text-seal, bg-seal, border-seal).
 */
 @theme {
-  --color-ground:      #f6fafd;
-  --color-ground-deep: #daecf8;
-  --color-surface:     #f7f9fb;
+  --color-ground:      #c4d4d4; /* the hero photo's blue */
+  --color-ground-deep: #ece4cc; /* the tickets' cream, lightened */
+  --color-surface:     #ffffff;
   --color-raised:      #ffffff;
   --color-ink:         #0f1620;
   --color-muted:       #4b5566;
@@ -47,17 +47,34 @@
   Element defaults. Prose and forms are written as plain elements across the
   pages, so their typography is set once here rather than on every tag.
 */
+/*
+  Page changes crossfade: the old page fades out as the new one fades in. The
+  header is lifted out and shown live, or its gliding dot would leave a ghost at
+  the old item. The die backdrop stays in the crossfade: a lifted snapshot is
+  drawn above the page, which would put the die over the content, and at its
+  speed it turns only ~11 degrees in the fade, too little to double up visibly.
+*/
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 560ms;
+  animation-timing-function: ease;
+}
+::view-transition-old(site-nav) { display: none; }
+::view-transition-new(site-nav) { animation: none; }
+
 @layer base {
   :root { color-scheme: light; }
 
   body {
-    background-color: var(--color-ground);
+    background-color: var(--color-ground-deep);
     /* Lightest at the die in the left margin (BeaconBackdrop: centre of the
        margin, 18vh up), deepening towards the far corner. Fixed, like the die,
        so the two stay together as the page scrolls. */
+    /* A defined halo, not a page-wide wash: a percentage of the distance to the
+       far corner spread the change over ~650px and read as one flat colour. */
     background-image: radial-gradient(
-      circle farthest-corner at max(0px, (100vw - 920px) / 4) calc(100% - 18vh),
-      var(--color-ground) 0%, var(--color-ground-deep) 35%
+      circle 600px at max(0px, (100vw - 920px) / 4) calc(100% - 18vh),
+      var(--color-ground) 0%, var(--color-ground) 30%, var(--color-ground-deep) 100%
     );
     background-attachment: fixed;
     color: var(--color-ink);

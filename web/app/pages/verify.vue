@@ -65,7 +65,7 @@ function onDrop(ev: DragEvent) {
       </div>
       <label for="raw" class="mt-3.5">…or paste the bundle</label>
       <textarea id="raw" v-model="raw" placeholder="{ &quot;version&quot;: 1, … }" />
-      <p class="mt-2 mb-0 text-[0.8rem] text-muted">
+      <p class="mt-2 mb-0 text-[0.85rem] text-muted">
         Drop a <code class="font-mono text-[0.85em]">bundle.json</code> anywhere on this panel.
       </p>
     </UiCard>

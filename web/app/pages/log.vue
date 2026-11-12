@@ -63,7 +63,7 @@ onMounted(load)
           {{ chain.ok ? 'replays cleanly' : 'broken' }}
         </UiPill>
       </div>
-      <p class="mt-2 text-[0.85rem] text-muted">
+      <p class="mt-2 text-[0.95rem] text-muted">
         <template v-if="chain.ok">
           Replayed from genesis in your browser: {{ records.length }} records, arriving at the head
           the server reports.
@@ -80,12 +80,12 @@ onMounted(load)
       <h2 class="text-beacon">
         {{ abandoned.length }} draw{{ abandoned.length === 1 ? '' : 's' }} with no published result
       </h2>
-      <p class="text-[0.85rem] text-muted">
+      <p class="text-[0.95rem] text-muted">
         Created, and their round has since published, but no result was ever recorded. This is not
         proof of misconduct — draws get cancelled for honest reasons — but a draw run repeatedly
         until the organiser liked the winner could only look like this.
       </p>
-      <ul class="list-disc pl-10 font-mono text-[0.8rem]">
+      <ul class="list-disc pl-10 font-mono text-[0.85rem]">
         <li v-for="d in abandoned" :key="d">
           <NuxtLink :to="`/draws/${d}`">{{ d }}</NuxtLink>
         </li>

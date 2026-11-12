@@ -125,11 +125,11 @@ function check() {
         <span class="font-serif text-[1.12rem] font-semibold">Keep this ticket</span>
       </div>
       <h2 class="mt-[22px] font-serif text-[1.3rem] text-seal">You were entry {{ index }} of {{ proof!.size }}</h2>
-      <p class="mt-2.5 mb-0 text-[0.9rem]">
+      <p class="mt-2.5 mb-0 text-[1rem]">
         Your entry was in the list the organiser committed to, and that commitment was signed before
         the deciding randomness existed.
       </p>
-      <p class="mt-[18px] mb-0 rounded-box bg-seal-bg px-3.5 py-3 text-[0.86rem] leading-[1.55] [&_a]:font-semibold">
+      <p class="mt-[18px] mb-0 rounded-box bg-seal-bg px-3.5 py-3 text-[0.95rem] leading-[1.55] [&_a]:font-semibold">
         Now check that this roster is the one the winners came from — the root above should match
         the one on the published result.
         <NuxtLink :to="`/draws/${drawId}`">Open the draw →</NuxtLink>
@@ -138,7 +138,7 @@ function check() {
 
     <UiCard v-if="state === 'fail'" class="border-fault!">
       <h2 class="text-fault">That does not match</h2>
-      <p class="mt-2.5 mb-0 text-[0.92rem]">
+      <p class="mt-2.5 mb-0 text-[1rem]">
         Nothing at position {{ index }} in this roster hashes to that entry and salt. Most often
         this is a typo in the entry — it has to be character for character what was submitted. If it
         is exactly right, then the entry at this position is not yours, and that is worth raising

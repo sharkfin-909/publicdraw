@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
  * Solid (seal) or ghost button. With `to` it is a router link styled as a
- * button — slightly roomier, as the homepage calls to action were.
+ * button — slightly roomier, as the homepage calls to action were — and a
+ * ghost link inverts on hover, filling with seal.
  */
 const props = withDefaults(
   defineProps<{ variant?: 'solid' | 'ghost'; to?: string; type?: 'button' | 'submit' }>(),
@@ -15,8 +16,10 @@ const NuxtLink = resolveComponent('NuxtLink')
     v-if="props.to"
     :to="props.to"
     class="inline-block rounded-box border border-seal px-[18px] py-2.5 text-[0.88rem] font-semibold
-           hover:no-underline hover:brightness-112"
-    :class="props.variant === 'ghost' ? 'bg-transparent text-seal' : 'bg-seal text-white'"
+           transition-colors duration-200 hover:no-underline"
+    :class="props.variant === 'ghost'
+      ? 'bg-transparent text-seal hover:bg-seal hover:text-white'
+      : 'bg-seal text-white hover:brightness-112'"
   >
     <slot />
   </NuxtLink>

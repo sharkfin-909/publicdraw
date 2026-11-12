@@ -42,7 +42,7 @@ useSeo({
         <div class="flex flex-wrap items-baseline justify-between gap-4 *:min-w-0">
           <div>
             <div class="font-serif text-[1.08rem] font-semibold">{{ d.title || 'Untitled draw' }}</div>
-            <div class="text-[0.8rem] text-muted">
+            <div class="text-[0.85rem] text-muted">
               {{ d.winners }} to win from {{ d.entry_count }} ·
               {{ d.disclosure }} entry list
             </div>
