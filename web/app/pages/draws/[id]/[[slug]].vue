@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { Admission, Bundle, DrawSummary } from '~/lib/types'
-import { verifyBundle, type Report } from '~/lib/verify'
+import type { Admission } from '~/lib/types'
 import { checkMembership } from '~/lib/membership'
 import { timeOfRound } from '~/lib/beacon'
 import { drawPath } from '~/utils/seo'
@@ -21,7 +20,7 @@ const { token } = useOrganiser()
 // The bundle arrives from the organiser's server and is checked in this
 // browser, against a pinned drand key. The server's own /verify is deliberately
 // not used: that answer would come from the party who ran the draw.
-const { data: initial, error: loadErr, refresh } = await useAsyncData(
+const { data: initial, error: loadErr } = await useAsyncData(
   () => `draw:${id.value}`,
   async () => {
     const summary = await api.getDraw(id.value)
@@ -32,11 +31,16 @@ const { data: initial, error: loadErr, refresh } = await useAsyncData(
   { watch: [id] },
 )
 
-const draw = computed(() => initial.value?.summary)
-const bundle = ref<Bundle | undefined>(initial.value?.bundle)
-watch(initial, (v) => (bundle.value = v?.bundle))
+// Where the draw is, what that needs from the server, and when to look again
+// all live in the session; this page renders it and handles the organiser's
+// actions.
+const session = useDrawSession(() => id.value, initial)
+const s = session.state
+const draw = computed(() => s.summary)
+const bundle = computed(() => s.bundle)
+const report = computed(() => s.report)
+const phase = computed(() => s.phase)
 
-const report = ref<Report>()
 const err = ref('')
 const busy = ref('')
 
@@ -63,7 +67,7 @@ async function toggleVisibility() {
   visBusy.value = true
   try {
     await api.setVisibility(id.value, listed.value ? 'unlisted' : 'public')
-    await refresh()
+    await session.refresh()
   } catch (e) {
     err.value = errorText(e)
   } finally {
@@ -94,28 +98,15 @@ const admitted = ref<Admission[]>([])
 
 // The receipt-free inclusion check: an entrant pastes the salt they were given
 // when they entered, and the page looks for their leaf in the published list.
-const leafList = ref<{ root: string; size: number; leaves: string[] }>()
 const selfCheck = reactive({ salt: '', label: '' })
 const selfResult = ref<{ found: boolean; index: number; leaf: string } | null>(null)
-
-const { published } = useCountdown(() => draw.value?.params.target_round)
-
-async function load() {
-  err.value = ''
-  try {
-    await refresh()
-    if (draw.value && draw.value.state !== 'open') await loadLeaves()
-  } catch (e) {
-    err.value = errorText(e)
-  }
-}
 
 async function act(name: string, fn: () => Promise<unknown>) {
   err.value = ''
   busy.value = name
   try {
     await fn()
-    await load()
+    await session.refresh()
   } catch (e) {
     err.value = errorText(e)
   } finally {
@@ -132,17 +123,8 @@ const addEntries = () =>
     entriesText.value = ''
   })
 
-async function loadLeaves() {
-  try {
-    leafList.value = await api.leaves(id.value)
-  } catch {
-    leafList.value = undefined
-  }
-}
-
 function runSelfCheck() {
-  // Prefer the verified bundle's leaves to the separately served list.
-  const leaves = bundle.value?.roster.leaves ?? leafList.value?.leaves
+  const leaves = s.checkLeaves
   if (!leaves) return (selfResult.value = null)
   const m = checkMembership(
     { salt: selfCheck.salt, label: selfCheck.label.trim() },
@@ -153,39 +135,14 @@ function runSelfCheck() {
 }
 
 const run = () => act('run', () => api.run(id.value))
-
-const now = useState('draw-now', () => Date.now())
-const cutoffPassed = computed(() =>
-  draw.value ? now.value / 1000 >= draw.value.params.cutoff_at : false,
-)
-const tooFewEntries = computed(() =>
-  draw.value ? draw.value.entry_count < draw.value.params.winners : false,
-)
-
-// The server freezes the roster at the cutoff, so the page has to notice.
-let ticker: ReturnType<typeof setInterval> | undefined
-onMounted(() => {
-  ticker = setInterval(() => {
-    now.value = Date.now()
-    const waiting = draw.value?.state === 'open' && cutoffPassed.value
-    if (waiting && !tooFewEntries.value && !published.value) load()
-  }, 2000)
-})
-onUnmounted(() => ticker && clearInterval(ticker))
-
-// Verification is deliberately client-only: it must run on the reader's
-// machine against the pinned drand key, never on a server they would then
-// have to trust. The server renders the result; the browser checks it.
-onMounted(() => {
-  watchEffect(() => {
-    report.value = bundle.value ? verifyBundle(bundle.value) : undefined
-  })
-})
 </script>
 
 <template>
   <UiPage>
-    <UiCallout v-if="err" tone="error">{{ err }}</UiCallout>
+    <UiCallout v-if="err || s.error" tone="error">{{ err || s.error }}</UiCallout>
+    <UiCallout v-if="s.bundleError" tone="error">
+      This draw has a published result, but it could not be loaded to verify: {{ s.bundleError }}
+    </UiCallout>
 
     <template v-if="draw">
       <header>
@@ -198,7 +155,7 @@ onMounted(() => {
       </header>
 
       <RoundCountdown
-        v-if="draw.state !== 'open' || !cutoffPassed"
+        v-if="phase !== 'closing' && phase !== 'stalled'"
         :round="draw.params.target_round"
         :frozen-at="draw.roster_commit?.committed_at"
       />
@@ -228,7 +185,7 @@ onMounted(() => {
           {{ draw.entry_count }} so far. Entering is not committing — the list is only frozen at the
           cutoff, and nothing before that point is tamper-evident.
         </p>
-        <template v-if="!cutoffPassed">
+        <template v-if="phase === 'open'">
           <label for="entries">One entry per line</label>
           <textarea id="entries" v-model="entriesText" placeholder="alice@example.com&#10;bob@example.com" />
           <div class="mt-2.5 flex flex-wrap items-center gap-3 *:min-w-0">
@@ -239,7 +196,7 @@ onMounted(() => {
           <AdmissionList v-if="admitted.length" :admitted="admitted" :draw-id="id" />
         </template>
         <UiCallout v-else class="mt-2.5">
-          <template v-if="tooFewEntries">
+          <template v-if="phase === 'stalled'">
             The cutoff passed with too few entries for {{ draw.params.winners }}
             {{ draw.params.winners === 1 ? 'winner' : 'winners' }}, so this draw cannot be completed.
           </template>
@@ -255,8 +212,8 @@ onMounted(() => {
           number does not exist yet.
         </p>
         <div class="flex flex-wrap items-center gap-3 *:min-w-0">
-          <UiButton :disabled="!published || busy === 'run'" @click="run">
-            {{ busy === 'run' ? 'Drawing…' : published ? 'Draw the winners' : 'Waiting for the round' }}
+          <UiButton :disabled="phase !== 'deciding' || busy === 'run'" @click="run">
+            {{ busy === 'run' ? 'Drawing…' : phase === 'deciding' ? 'Draw the winners' : 'Waiting for the round' }}
           </UiButton>
         </div>
       </UiCard>
@@ -293,10 +250,10 @@ onMounted(() => {
       </UiCard>
 
       <!-- Self-check against the published leaves -->
-      <UiCard v-if="leafList">
+      <UiCard v-if="s.checkLeaves">
         <h2>Check your own entry</h2>
         <p class="text-[0.95rem] text-muted">
-          {{ leafList.size }} leaves published. If you entered, you were given a salt at that
+          {{ s.checkLeaves.length }} leaves published. If you entered, you were given a salt at that
           moment — paste it with your entry and this page will look for you in the committed list.
           Nothing is sent anywhere; the check runs here.
         </p>
@@ -317,7 +274,7 @@ onMounted(() => {
         </div>
         <div v-if="selfResult" class="mt-3">
           <p v-if="selfResult.found" class="font-semibold text-seal">
-            Found — you are entry #{{ selfResult.index }} of {{ leafList.size }} in the committed
+            Found — you are entry #{{ selfResult.index }} of {{ s.checkLeaves.length }} in the committed
             roster.
           </p>
           <p v-else class="font-semibold text-fault">
