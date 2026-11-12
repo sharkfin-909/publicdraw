@@ -45,7 +45,7 @@
             alt="Strips of raffle tickets curling through the air, printed “ticket” and “keep this ticket”"
             fetchpriority="high"
             decoding="async"
-            class="block size-full max-h-[344px] rounded-box border border-line object-cover shadow-card saturate-55
+            class="block size-full max-h-[344px] rounded-card border border-line object-cover shadow-card saturate-55
                    max-[760px]:aspect-[16/10] max-[760px]:h-auto max-[760px]:max-h-none"
           />
         </picture>
@@ -96,7 +96,7 @@
         alt="A group of people standing close together, arms around one another’s shoulders"
         loading="lazy"
         decoding="async"
-        class="block aspect-[5/2] w-full rounded-box border border-line object-cover object-[50%_40%] shadow-card max-[760px]:aspect-[4/3]"
+        class="block aspect-[5/2] w-full rounded-card border border-line object-cover object-[50%_40%] shadow-card saturate-55 max-[760px]:aspect-[4/3]"
       />
     </picture>
   </figure>

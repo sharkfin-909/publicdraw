@@ -8,7 +8,7 @@ const props = withDefaults(
   defineProps<{
     name: 'stamp' | 'radio-tower' | 'laptop-check' | 'tickets' | 'cog'
     tone?: 'seal' | 'beacon'
-    /** On the page rather than in a card: a white, bordered tile, as the cards are. */
+    /** On the page rather than in a card: a circle in the hero photo's blue. */
     raised?: boolean
   }>(),
   { tone: 'seal' },
@@ -47,10 +47,10 @@ const paths: Record<typeof props.name, string> = {
 
 <template>
   <span
-    class="mx-auto mb-3.5 grid size-[52px] place-items-center rounded-box"
+    class="mx-auto mb-3.5 grid size-[52px] place-items-center"
     :class="[
       tone === 'beacon' ? 'text-beacon' : 'text-seal',
-      raised ? 'border border-line bg-raised shadow-card' : tone === 'beacon' ? 'bg-beacon-bg' : 'bg-seal-bg',
+      raised ? 'rounded-full border border-line bg-ground shadow-card' : ['rounded-box', tone === 'beacon' ? 'bg-beacon-bg' : 'bg-seal-bg'],
     ]"
     aria-hidden="true"
   >

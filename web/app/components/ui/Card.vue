@@ -14,7 +14,7 @@ const NuxtLink = resolveComponent('NuxtLink')
   <component
     :is="props.to ? NuxtLink : props.as"
     :to="props.to"
-    class="card min-w-0 text-[1rem] rounded-box border border-line bg-surface p-5 shadow-card
+    class="card min-w-0 font-serif text-[1rem] rounded-card border border-line bg-surface px-7 py-6 shadow-card max-[560px]:px-5 max-[560px]:py-5
            [&_.font-mono]:wrap-anywhere [&_code]:wrap-anywhere
            [.card+&]:mt-4 [.grid>&]:mt-0!"
   >

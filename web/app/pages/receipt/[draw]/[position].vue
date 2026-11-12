@@ -124,7 +124,7 @@ function check() {
     <!-- The ticket: a dashed tear line under its head, as on a paper stub. -->
     <section
       v-if="state === 'pass'"
-      class="relative rounded-box border border-line bg-surface px-[26px] py-6 text-ink
+      class="relative rounded-card border border-line bg-surface px-[26px] py-6 text-ink
              shadow-[0_1px_0_rgba(15,22,32,0.04),0_10px_26px_-16px_rgba(15,22,32,0.45)]
              before:absolute before:inset-x-0 before:top-16 before:border-t before:border-dashed before:border-line"
     >

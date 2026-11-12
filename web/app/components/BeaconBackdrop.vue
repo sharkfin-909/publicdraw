@@ -16,8 +16,8 @@
  * still for anyone who has asked for reduced motion.
  */
 
-const S = 52            // edge length
-const R = 7             // rounding radius
+const S = 40            // edge length
+const R = 5.5           // rounding radius
 const H = S / 2
 const FLAT = S - 2 * R  // flat part of each face
 
@@ -223,7 +223,7 @@ const rings = 4
 
 .face {
   display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr);
-  padding: 3px;
+  padding: 2.5px;
   background: #fbfcfd;
 }
 .strip.side { background: #dce2e9; }
@@ -240,7 +240,7 @@ const rings = 4
 .cell { display: grid; place-items: center; }
 /* Drilled, not printed: shadowed on the upper inside edge. */
 .pip {
-  width: 8.5px; height: 8.5px; border-radius: 50%;
+  width: 6.5px; height: 6.5px; border-radius: 50%;
   background: #785964; /* the logo's beacon colour */
   box-shadow: inset 0 1.5px 1.5px rgba(48, 30, 38, 0.6), 0 0.5px 0 rgba(255, 255, 255, 0.6);
 }

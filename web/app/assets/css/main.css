@@ -39,6 +39,7 @@
   /* The content column, shared by the page and the header. */
   --container-page: 920px;
   --radius-box: 3px;
+  --radius-card: 14px; /* cards and photos */
   /* Faint lift off the sky-blue ground. */
   --shadow-card: 0 1px 3px rgba(15, 22, 32, 0.06), 0 8px 22px rgba(15, 22, 32, 0.08);
 }
@@ -93,6 +94,10 @@
   h2 { font-size: 1.3rem; line-height: 1.2; }
   h3 { font-size: 0.95rem; font-family: var(--font-sans); font-weight: 600; }
   p { margin: 0 0 14px; }
+
+  /* Controls, labels and tables stay in the sans wherever they sit, so a card
+     set in the serif keeps its forms and data in the interface face. */
+  label, input, select, button, table { font-family: var(--font-sans); }
 
   label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 5px; color: var(--color-muted); }
   input, select, textarea {
