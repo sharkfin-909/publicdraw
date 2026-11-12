@@ -73,16 +73,16 @@ describe('the anchored bundle as a whole', () => {
     delete t.roster.rekor_anchor
     const rep = verifyBundle(t)
     expect(rep.ok).toBe(true)
-    const names = rep.checks.filter((c) => c.skipped).map((c) => c.name)
-    expect(names.some((n) => n.includes('organiser does not control'))).toBe(true)
-    expect(names.some((n) => n.includes('abandoned and retried'))).toBe(true)
+    const skipped = rep.checks.filter((c) => c.skipped).map((c) => c.id)
+    expect(skipped).toContain('anchor.present')
+    expect(skipped).toContain('log.not-retried')
   })
 
   // Saying a single bundle proved this would be the worst lie the system
   // could tell, so it must stay skipped even when anchored.
   it('leaves the retry question open even when anchored', () => {
     const rep = verifyBundle(bundle)
-    const c = rep.checks.find((x) => x.name.includes('abandoned and retried'))!
+    const c = rep.checks.find((x) => x.id === 'log.not-retried')!
     expect(c.skipped).toBe(true)
   })
 })

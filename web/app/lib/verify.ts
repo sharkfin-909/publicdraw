@@ -28,6 +28,8 @@ import type { Bundle } from './types'
 export const MIN_LEAD_SECONDS = 15
 
 export interface Check {
+  /** Stable id, shared with the Go verifier; see CHECK_IDS. */
+  id: string
   name: string
   ok: boolean
   skipped: boolean
@@ -40,12 +42,51 @@ export interface Report {
   checks: Check[]
 }
 
+/**
+ * Every check's stable id, separate from the sentence shown to a person. These
+ * are the ids bundle/checks.go uses: the shared bundle vectors
+ * (testdata/bundlevectors.json) key Go's verdict on them, and the vector test
+ * holds this verifier to the same verdict check by check. A check can be
+ * reworded freely; a new check needs an id here and in Go.
+ */
+export const CHECK_IDS: Record<string, string> = {
+  'roster commitment binds root and size': 'roster.commitment',
+  'roster commitment belongs to this draw': 'roster.draw',
+  'draw parameters name this chain': 'params.chain',
+  'operator signature over draw parameters': 'sig.params',
+  'operator signature over roster commitment': 'sig.roster',
+  'parameters fixed before the cutoff': 'order.params-before-cutoff',
+  'roster frozen at or after the cutoff': 'order.roster-after-cutoff',
+  'roster frozen before the beacon round existed': 'order.roster-before-round',
+  'target round leaves the minimum lead after cutoff': 'order.min-lead',
+  'beacon round is the committed target': 'beacon.target',
+  'drand signature verifies against pinned group key': 'beacon.signature',
+  'seed derives from roster and beacon': 'derive.seed',
+  'winners derive from the seed': 'derive.winners',
+  'published leaves match the committed entry count': 'leaves.count',
+  'published leaves rebuild to the committed root': 'leaves.root',
+  'published entries match the committed entry count': 'entries.count',
+  'published entries hash to the published leaves': 'entries.leaves',
+  'private disclosure withholds the entry list': 'entries.withheld',
+  'disclosure mode is recognised': 'disclosure.mode',
+  "each winner's leaf sits at its claimed index": 'winners.at-index',
+  'each winner is proven to be in the committed roster': 'winners.proven',
+  'log records form an unbroken chain': 'log.chain',
+  "log contains this draw's creation, cutoff and result": 'log.covers',
+  'this draw was not abandoned and retried': 'log.not-retried',
+  'log head published to a log the organiser does not control': 'anchor.present',
+  'rekor inclusion proof verifies': 'anchor.inclusion',
+  'anchor binds a head from this draw\u2019s log': 'anchor.binds',
+  'checkpoint parses': 'anchor.checkpoint',
+  'log head witnessed before the beacon round': 'anchor.witnessed',
+}
+
 export function verifyBundle(b: Bundle): Report {
   const checks: Check[] = []
   const add = (name: string, ok: boolean, detail: string) =>
-    checks.push({ name, ok, skipped: false, detail })
+    checks.push({ id: CHECK_IDS[name] ?? '', name, ok, skipped: false, detail })
   const skip = (name: string, detail: string) =>
-    checks.push({ name, ok: false, skipped: true, detail })
+    checks.push({ id: CHECK_IDS[name] ?? '', name, ok: false, skipped: true, detail })
 
   const p = b.draw.params
   const rc = b.roster.commitment

@@ -380,56 +380,19 @@ func (s *Service) Bundle(ctx context.Context, id string) (bundle.Bundle, error) 
 }
 
 func (s *Service) assemble(st *Stored, r beacon.Round) (bundle.Bundle, error) {
-	rnd, err := r.Randomness()
-	if err != nil {
-		return bundle.Bundle{}, err
+	src := bundle.Source{
+		Operator: hex.EncodeToString(s.pub),
+		Params:   st.Params, ParamsSig: st.ParamsSig,
+		Sealed: st.Sealed, Commit: *st.RosterCommit, RosterSig: st.RosterSig,
+		Round: r,
+		LogID: s.logID, Records: s.log.Records(), Head: s.log.Head(),
 	}
-	rc := *st.RosterCommit
-	seed := draw.Seed(rc.Root, rc.Size, rnd, st.Params.DrawID)
-	won, wait, err := draw.Select(seed, rc.Size, st.Params.Winners)
-	if err != nil {
-		return bundle.Bundle{}, err
-	}
-	ros, err := roster.Load(st.Sealed)
-	if err != nil {
-		return bundle.Bundle{}, err
-	}
-
-	winners := make([]bundle.Winner, len(won))
-	for rank, idx := range won {
-		sealed, path, err := ros.Open(idx)
-		if err != nil {
-			return bundle.Bundle{}, err
-		}
-		winners[rank] = bundle.Winner{
-			Rank: rank + 1, Index: idx, Salt: hex.EncodeToString(sealed.Salt),
-			Entry: sealed.Entry, MerklePath: path,
-		}
-	}
-
-	rref := bundle.RosterRef{Commitment: rc, Signature: st.RosterSig, Leaves: ros.Leaves()}
 	if st.AnchoredHead != "" {
 		if h, err := hashing.ParseDigest(st.AnchoredHead); err == nil {
-			rref.RekorAnchor = s.AnchorFor(h)
+			src.Anchor = s.AnchorFor(h)
 		}
 	}
-	if st.Params.Disclosure == roster.Public {
-		rref.Entries = st.Sealed
-	}
-
-	return bundle.Bundle{
-		Version:  1,
-		Operator: hex.EncodeToString(s.pub),
-		Draw:     bundle.DrawRef{Params: st.Params, Signature: st.ParamsSig},
-		Roster:   rref,
-		Beacon:   r,
-		Result:   bundle.Result{Seed: seed, Winners: winners, Waitlist: wait},
-		Log: bundle.LogRef{
-			LogID:   s.logID,
-			Records: s.log.Records(),
-			Head:    s.log.Head(),
-		},
-	}, nil
+	return bundle.Assemble(src)
 }
 
 func (s *Service) anchorPath() string { return filepath.Join(s.dir, "anchors.json") }

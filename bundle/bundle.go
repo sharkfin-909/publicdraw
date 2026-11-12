@@ -103,6 +103,7 @@ type LogRef struct {
 
 // Check is the outcome of one verification step.
 type Check struct {
+	ID      string `json:"id"` // stable; see checkIDs
 	Name    string `json:"name"`
 	OK      bool   `json:"ok"`
 	Skipped bool   `json:"skipped"`
@@ -118,11 +119,11 @@ type Report struct {
 }
 
 func (r *Report) add(name string, ok bool, format string, args ...any) {
-	r.Checks = append(r.Checks, Check{Name: name, OK: ok, Detail: fmt.Sprintf(format, args...)})
+	r.Checks = append(r.Checks, Check{ID: checkIDs[name], Name: name, OK: ok, Detail: fmt.Sprintf(format, args...)})
 }
 
 func (r *Report) skip(name, format string, args ...any) {
-	r.Checks = append(r.Checks, Check{Name: name, Skipped: true, Detail: fmt.Sprintf(format, args...)})
+	r.Checks = append(r.Checks, Check{ID: checkIDs[name], Name: name, Skipped: true, Detail: fmt.Sprintf(format, args...)})
 	r.Skipped++
 }
 
